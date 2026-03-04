@@ -23,6 +23,20 @@ export default class Keys extends Extension {
           // we can't use the keys bindings for this as we want to preventDefault
           // on the original keyboard event when handled
           handleKeyDown: (view, event) => {
+            // Handle Tab to accept completion
+            if (event.key === "Tab" && this.options.onAcceptCompletion) {
+              event.preventDefault();
+              this.options.onAcceptCompletion();
+              return true;
+            }
+
+            // Handle Escape to dismiss completion (without Mod)
+            if (event.key === "Escape" && !isModKey(event) && this.options.onDismissCompletion) {
+              event.preventDefault();
+              this.options.onDismissCompletion();
+              return true;
+            }
+
             if (view.state.selection instanceof AllSelection) {
               if (event.key === "ArrowUp") {
                 const selection = Selection.atStart(view.state.doc);

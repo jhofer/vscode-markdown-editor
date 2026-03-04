@@ -1,7 +1,7 @@
 /* global window File Promise */
 import * as React from "react";
 import memoize from "lodash/memoize";
-import { isBasicallySame } from "../utils/utils";
+import { isBasicallySame, debounce } from "../utils/utils";
 import { EditorState, Selection, Plugin } from "prosemirror-state";
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
@@ -30,6 +30,7 @@ import headingToSlug from "./lib/headingToSlug";
 
 // styles
 import { StyledEditor } from "./styles/editor";
+import { InlineCompletion } from "./components/InlineCompletion";
 
 // nodes
 import ReactNode from "./nodes/ReactNode";
@@ -146,6 +147,7 @@ export type Props = {
   onGetImageData?: (src: string) => string;
   onCreateLink?: (title: string) => Promise<string>;
   onSearchLink?: (term: string) => Promise<SearchResult[]>;
+  onRequestCompletion?: (context: { prefix: string; suffix: string; mdContent: string; cursorPos: number; fileName: string }) => Promise<string[]>;
   onClickLink: (href: string, event: MouseEvent) => void;
   onHoverLink?: (event: MouseEvent) => boolean;
   onClickHashtag?: (tag: string, event: MouseEvent) => void;
@@ -165,6 +167,8 @@ type State = {
   linkMenuOpen: boolean;
   blockMenuSearch: string;
   emojiMenuOpen: boolean;
+  completionSuggestion: string;
+  completionIsLoading: boolean;
 };
 
 type Step = {
@@ -201,6 +205,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     linkMenuOpen: false,
     blockMenuSearch: "",
     emojiMenuOpen: false,
+    completionSuggestion: "",
+    completionIsLoading: false,
   };
 
   isBlurred: boolean;
@@ -221,6 +227,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
   marks: { [name: string]: MarkSpec };
   commands: Record<string, any>;
   rulePlugins: PluginSimple[];
+  debouncedRequestCompletion: ((...args: any[]) => void) & { flush(): void };
 
   componentDidMount() {
     this.init();
@@ -237,6 +244,126 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       this.focusAtEnd();
     }
   }
+
+  /**
+   * Accept the current completion suggestion and insert it at cursor
+   */
+  acceptCompletion = () => {
+    const { completionSuggestion } = this.state;
+    if (!completionSuggestion) return;
+
+    const { from, to } = this.view.state.selection;
+    const tr = this.view.state.tr.insertText(completionSuggestion, to, to);
+    this.view.dispatch(tr);
+
+    // Clear the suggestion after accepting
+    this.dismissCompletion();
+  };
+
+  /**
+   * Request completion from Copilot based on current editor state
+   */
+  /**
+   * Calculate cursor position in pixels relative to the editor
+   */
+  getCursorCoords(): { top: number; left: number } | null {
+    try {
+      if (!this.view || !this.element) {
+        return null;
+      }
+
+      const { state } = this.view;
+      const coords = this.view.coordsAtPos(state.selection.from);
+      
+      if (!coords) {
+        return null;
+      }
+
+      // Get editor element's position
+      const editorRect = this.element.getBoundingClientRect();
+      
+      // Calculate relative position (offset from editor container)
+      return {
+        top: coords.top - editorRect.top - 2, // Slight upward offset
+        left: coords.left - editorRect.left,
+      };
+    } catch (error) {
+      console.error("Error calculating cursor coords:", error);
+      return null;
+    }
+  }
+
+  requestCompletion = () => {
+    const { onRequestCompletion } = this.props;
+    if (!onRequestCompletion) return;
+
+    const { state } = this.view;
+    const content = this.serializer.serialize(state.doc);
+    
+    // Calculate the character position in the serialized content
+    // state.selection.from is a ProseMirror position, not a char index
+    // We need to get the text up to the cursor position and measure it
+    const $from = state.doc.resolve(state.selection.from);
+    
+    // Serialize the document up to the cursor position to get accurate character count
+    let charPosInContent = 0;
+    state.doc.nodesBetween(0, state.selection.from, (node, pos) => {
+      // For text nodes, accumulate their text content
+      if (node.isText) {
+        charPosInContent += node.text?.length || 0;
+      } else if (node.type.name !== 'doc') {
+        // For non-text nodes, we need to account for the serialized representation
+        const nodeText = this.serializer.serialize(node);
+        charPosInContent += nodeText.length;
+      }
+    });
+    
+    // Alternative: Serialize up to cursor, then measure
+    // This is more reliable as it accounts for node serialization
+    const prefix = this.serializer.serialize(
+      state.doc.cut(0, state.selection.from)
+    );
+    const suffix = this.serializer.serialize(
+      state.doc.cut(state.selection.from)
+    );
+    const cursorPos = prefix.length;
+
+    // Get file name from the editor (would need to pass it as a prop)
+    const fileName = "document.md";
+
+    const context = {
+      prefix,
+      suffix,
+      mdContent: content,
+      cursorPos,
+      fileName,
+    };
+
+    // Set loading state
+    this.setState({ completionIsLoading: true });
+
+    // Trigger completion request asynchronously
+    onRequestCompletion(context).then((suggestions) => {
+      if (suggestions && suggestions.length > 0) {
+        // Get first suggestion (Phase 1 - single suggestion)
+        this.setState({
+          completionSuggestion: suggestions[0],
+          completionIsLoading: false,
+        });
+      } else {
+        this.setState({
+          completionSuggestion: "",
+          completionIsLoading: false,
+        });
+      }
+    }).catch((error) => {
+      console.error("Completion request error:", error);
+      this.setState({
+        completionSuggestion: "",
+        completionIsLoading: false,
+      });
+    });
+  };
 
   componentDidUpdate(prevProps: Props) {
     // Allow changes to the 'value' prop to update the editor from outside
@@ -314,6 +441,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     this.nodeViews = this.createNodeViews();
     this.view = this.createView();
     this.commands = this.createCommands();
+    // Create debounced completion request
+    this.debouncedRequestCompletion = debounce(this.requestCompletion.bind(this), 300);
   }
 
   createExtensions() {
@@ -393,6 +522,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             onSave: this.handleSave,
             onSaveAndExit: this.handleSaveAndExit,
             onCancel: this.props.onCancel,
+            onAcceptCompletion: this.acceptCompletion,
+            onDismissCompletion: this.dismissCompletion,
           }),
           new BlockMenuTrigger({
             dictionary,
@@ -622,6 +753,12 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     this.props.onChange(() => {
       return this.value();
     });
+
+    // Request completion after user stops typing
+    if (this.debouncedRequestCompletion) {
+      this.setState({ completionIsLoading: true });
+      this.debouncedRequestCompletion();
+    }
   };
 
   handleSave = () => {
@@ -764,13 +901,22 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       >
         <ThemeProvider theme={this.theme()}>
           <React.Fragment>
-            <StyledEditor
-              dir={dir}
-              rtl={isRTL}
-              readOnly={readOnly}
-              readOnlyWriteCheckboxes={readOnlyWriteCheckboxes}
-              ref={(ref) => (this.element = ref)}
-            />
+            <div style={{ position: "relative", width: "100%" }}>
+              <StyledEditor
+                dir={dir}
+                rtl={isRTL}
+                readOnly={readOnly}
+                readOnlyWriteCheckboxes={readOnlyWriteCheckboxes}
+                ref={(ref) => (this.element = ref)}
+              />
+              {!readOnly && (
+                <InlineCompletion
+                  suggestion={this.state.completionSuggestion}
+                  isLoading={this.state.completionIsLoading}
+                  cursorCoords={this.getCursorCoords()}
+                />
+              )}
+            </div>
             {!readOnly && this.view && (
               <React.Fragment>
                 <SelectionToolbar

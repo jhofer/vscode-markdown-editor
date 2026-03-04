@@ -13,6 +13,8 @@ import { searchLinkMessage } from "../common/messages/searchLink";
 import { openLinkMessage } from "../common/messages/openLink";
 import { readyMessage } from "../common/messages/ready";
 import { initMessage } from "../common/messages/init";
+import { requestCompletionMessage } from "../common/messages/requestCompletion";
+import { CopilotProvider } from "./copilotProvider";
 
 // Per-document editor context
 interface EditorContext {
@@ -26,6 +28,7 @@ export class RichMarkdownEditorProvider
 {
   // Map of document URI to editor context
   private editors: Map<string, EditorContext> = new Map();
+  private copilotProvider = new CopilotProvider();
 
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new RichMarkdownEditorProvider(context);
@@ -264,6 +267,23 @@ export class RichMarkdownEditorProvider
         logger.logDebug("searchLink result", result);
         const responseMsg = searchLinkMessage.response(result);
         ctx.messageBroker.sendMessage(responseMsg);
+      }
+    );
+
+    // Register handler for Copilot completion requests
+    messageBroker.registerHandler(
+      requestCompletionMessage.requestType,
+      async (message: unknown) => {
+        const msg = message as IMessage<any>;
+        try {
+          const suggestions = await this.copilotProvider.getCompletion(msg.payload);
+          const responseMsg = requestCompletionMessage.response(suggestions);
+          ctx.messageBroker.sendMessage(responseMsg);
+        } catch (error) {
+          logger.logDebug("Completion error", { error: String(error) });
+          const errorMsg = requestCompletionMessage.error(String(error));
+          ctx.messageBroker.sendMessage(errorMsg);
+        }
       }
     );
 

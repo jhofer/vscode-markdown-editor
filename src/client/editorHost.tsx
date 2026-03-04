@@ -16,6 +16,7 @@ import { useVSCodeState } from "./utils/useVSCodeState";
 import { HostMessageBroker } from "../host/hostMessageBroker";
 import { useMessageBroker } from "./messages/clientMessageBroker";
 import { searchLinkMessage } from "../common/messages/searchLink";
+import { requestCompletionMessage } from "../common/messages/requestCompletion";
 import { useImages } from "./useImages";
 import { updateMarkdownMessage } from "../common/messages/updateMarkdown";
 import { openLinkMessage } from "../common/messages/openLink";
@@ -100,6 +101,10 @@ export function EditorHost(props: IEditorHostProps) {
   });
 
   const searchLink = useBidirectionalEvent(messageBroker, searchLinkMessage);
+  const requestCompletion = useBidirectionalEvent(
+    messageBroker,
+    requestCompletionMessage
+  );
   const [uploadImage, urlLookUp] = useImages(messageBroker, urlLookupRef);
 
   // Memoize the debounced handler to prevent recreation on every render
@@ -154,6 +159,20 @@ export function EditorHost(props: IEditorHostProps) {
     [messageBroker]
   );
 
+  const handleRequestCompletion = useCallback(
+    async (context: { prefix: string; suffix: string; mdContent: string; cursorPos: number; fileName: string }) => {
+      try {
+        const response = await requestCompletion(context);
+        // The response has shape { suggestions: string[] }
+        return (response && response.suggestions) || [];
+      } catch (error) {
+        console.error("Completion request failed:", error);
+        return [];
+      }
+    },
+    [requestCompletion]
+  );
+
   const rerenderEditor = useCallback((markdown: string | undefined) => {
     // Force re-render by updating the markdown text
     setMarkdownText(markdown);
@@ -180,6 +199,7 @@ export function EditorHost(props: IEditorHostProps) {
       onChange={handleOutlineChange}
       onSearchLink={handleSearchLink}
       onCreateLink={handleCreateLink}
+      onRequestCompletion={handleRequestCompletion}
       uploadImage={uploadImage}
       onClickLink={handleClickLink}
       onGetImageData={urlLookUp}
