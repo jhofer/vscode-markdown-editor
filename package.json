@@ -1,0 +1,141 @@
+{
+  "name": "rich-markdown-editor-jonas",
+  "displayName": "Rich Markdown Editor Jonas",
+  "version": "1.0.5",
+  "description": "Edit markdown files in preview mode with a rich text editor",
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "browser": "./out/extension.js",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "publisher": "patmood",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/patmood/rich-markdown-editor-vsc"
+  },
+  "bugs": {
+    "url": "https://github.com/patmood/rich-markdown-editor-vsc/issues"
+  },
+  "icon": "./icon.png",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "markdownCustom.richMarkdownEditorJonas",
+        "displayName": "Rich Markdown Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "properties": {
+      "rich-markdown-editor.fontSize": {
+        "type": "string",
+        "markdownDescription": "Base font size",
+        "default": "16px",
+        "scope": "window"
+      },
+      "rich-markdown-editor.fontFamily": {
+        "type": "string",
+        "markdownDescription": "Font family for rendering markdown",
+        "default": "-apple-system, system-ui, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif",
+        "scope": "window"
+      }
+    }
+  },
+  "keywords": [
+    "rich",
+    "markdown",
+    "editor",
+    "preview"
+  ],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "npm run esbuild-client --  --minify  && npm run esbuild-extension --  --minify ",
+    "build-debug": "npm run esbuild-client && npm run esbuild-extension",
+    "esbuild-extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap --sources-content=true",
+    "esbuild-client": "esbuild ./src/client --bundle --outfile=out/client.js --sourcemap=inline --sources-content=true",
+    "watch-client": "npm run esbuild-client -- --watch",
+    "watch-extension": "npm run esbuild-extension -- --watch",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/fuzzy-search": "^2.1.1",
+    "@types/jest": "^27.4.1",
+    "@types/lodash": "^4.14.149",
+    "@types/markdown-it": "^10.0.1",
+    "@types/node": "^17.0.21",
+    "@types/prosemirror-commands": "^1.0.1",
+    "@types/prosemirror-dropcursor": "^1.0.0",
+    "@types/prosemirror-gapcursor": "^1.0.1",
+    "@types/prosemirror-history": "^1.0.1",
+    "@types/prosemirror-inputrules": "^1.0.2",
+    "@types/prosemirror-keymap": "^1.0.1",
+    "@types/prosemirror-markdown": "^1.0.3",
+    "@types/prosemirror-model": "^1.7.2",
+    "@types/prosemirror-schema-list": "^1.0.1",
+    "@types/prosemirror-state": "^1.2.4",
+    "@types/prosemirror-view": "^1.11.4",
+    "@types/react": "^17.0.40",
+    "@types/react-dom": "^17.0.13",
+    "@types/react-medium-image-zoom": "^3.0.3",
+    "@types/refractor": "^2.8.0",
+    "@types/styled-components": "^5.1.7",
+    "@types/vscode": "^1.52.0",
+    "@types/vscode-webview": "^1.57.5",
+    "@typescript-eslint/eslint-plugin": "^5.15.0",
+    "@typescript-eslint/parser": "^5.15.0",
+    "esbuild": "^0.14.27",
+    "esbuild-jest": "^0.5.0",
+    "eslint": "^8.11.0",
+    "jest": "^27.5.1",
+    "prettier": "^2.6.0",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "styled-components": "^5.3.3",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.2"
+  },
+  "dependencies": {
+    "copy-to-clipboard": "^3.0.8",
+    "fuzzy-search": "^3.2.1",
+    "gemoji": "6.x",
+    "lodash": "^4.17.11",
+    "markdown-it": "^12.2.0",
+    "markdown-it-container": "^3.0.0",
+    "markdown-it-emoji": "^2.0.0",
+    "outline-icons": "^1.38.1",
+    "prosemirror-commands": "^1.1.6",
+    "prosemirror-dropcursor": "^1.3.3",
+    "prosemirror-gapcursor": "^1.1.5",
+    "prosemirror-history": "^1.1.3",
+    "prosemirror-inputrules": "^1.1.3",
+    "prosemirror-keymap": "^1.1.4",
+    "prosemirror-markdown": "^1.5.2",
+    "prosemirror-model": "^1.13.3",
+    "prosemirror-schema-list": "^1.1.2",
+    "prosemirror-state": "^1.3.4",
+    "prosemirror-tables": "^1.1.1",
+    "prosemirror-transform": "1.2.5",
+    "prosemirror-utils": "^0.9.6",
+    "prosemirror-view": "1.18.1",
+    "react-medium-image-zoom": "^3.1.3",
+    "react-portal": "^4.2.1",
+    "react-textarea-autosize": "^8.5.4",
+    "refractor": "^3.3.1",
+    "resize-observer-polyfill": "^1.5.1",
+    "slugify": "^1.4.0",
+    "smooth-scroll-into-view-if-needed": "^1.1.29"
+  }
+}
