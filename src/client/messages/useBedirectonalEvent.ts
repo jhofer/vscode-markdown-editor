@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { IMessage, IMessageFactory } from "../../common/messages";
-import { vscode } from "../utils";
 import { ClientMessageBroker } from "./clientMessageBroker";
 
 export const useBidirectionalEvent = <
@@ -23,33 +22,35 @@ export const useBidirectionalEvent = <
 ) => {
   const resultCallback = useRef<(result: TResponse["payload"]) => void>();
   const errorCallback = useRef<(result: TError["payload"]) => void>();
+
   useEffect(() => {
-    messageBroker.registerHandler(message.responseType, (m) => {
-      if (resultCallback.current) {
-        const { payload } = m as TResponse;
-        resultCallback.current(payload!);
+    messageBroker.registerHandler(
+      message,
+      (payload) => {
+        if (resultCallback.current) {
+          resultCallback.current(payload as TResponse["payload"]);
+        }
+      },
+      (payload) => {
+        if (errorCallback.current) {
+          errorCallback.current(payload as TError["payload"]);
+        }
       }
-    });
-    messageBroker.registerHandler(message.errorType, (m) => {
-      if (errorCallback.current) {
-        const { payload } = m as TError;
-        errorCallback.current(payload!);
-      }
-    });
-  }, [messageBroker]);
+    );
+  }, [messageBroker, message]);
 
   // get function parameters of message.request
 
   type requestFunctionType = typeof message.request;
   type requestFunctionParameters = Parameters<requestFunctionType>;
   const sendMessage = async (...params: requestFunctionParameters) => {
-    const request = await message.request(...params);
-    messageBroker.sendMessage(request);
-
     const promise = new Promise<TResponse["payload"]>((resolve, reject) => {
       resultCallback.current = resolve;
       errorCallback.current = reject;
     });
+
+    const request = await message.request(...params);
+    messageBroker.sendMessage(request);
 
     const result = await promise;
     return result;
