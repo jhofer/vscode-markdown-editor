@@ -284,7 +284,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       
       // Calculate relative position (offset from editor container)
       return {
-        top: coords.top - editorRect.top - 2, // Slight upward offset
+        top: coords.top - editorRect.top - 1, // Slight upward offset
         left: coords.left - editorRect.left,
       };
     } catch (error) {
@@ -294,38 +294,44 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
   }
 
   requestCompletion = () => {
+    console.log("requestCompletion called");
     const { onRequestCompletion } = this.props;
-    if (!onRequestCompletion) return;
+    if (!onRequestCompletion) {
+      console.log("No onRequestCompletion callback");
+      return;
+    }
 
     const { state } = this.view;
     const content = this.serializer.serialize(state.doc);
     
-    // Calculate the character position in the serialized content
-    // state.selection.from is a ProseMirror position, not a char index
-    // We need to get the text up to the cursor position and measure it
-    const $from = state.doc.resolve(state.selection.from);
-    
     // Serialize the document up to the cursor position to get accurate character count
-    let charPosInContent = 0;
-    state.doc.nodesBetween(0, state.selection.from, (node, pos) => {
-      // For text nodes, accumulate their text content
-      if (node.isText) {
-        charPosInContent += node.text?.length || 0;
-      } else if (node.type.name !== 'doc') {
-        // For non-text nodes, we need to account for the serialized representation
-        const nodeText = this.serializer.serialize(node);
-        charPosInContent += nodeText.length;
-      }
-    });
-    
-    // Alternative: Serialize up to cursor, then measure
-    // This is more reliable as it accounts for node serialization
     const prefix = this.serializer.serialize(
       state.doc.cut(0, state.selection.from)
     );
     const suffix = this.serializer.serialize(
       state.doc.cut(state.selection.from)
     );
+
+    console.log("Completion check:", {
+      suffixLength: suffix.length,
+      suffixTrimmed: suffix.trim().length,
+      suffixPreview: suffix.substring(0, 50),
+    });
+
+    // Only propose completion if cursor is at end of line (no actual text after cursor)
+    // Check for word characters or punctuation, not markdown artifacts like \n or \\
+    const hasContentAfter = /[a-zA-Z0-9\s\p{L}\p{N}!?.,;:—–\-()[\]{}]/u.test(suffix.trim());
+    if (hasContentAfter && suffix.trim().length > 0) {
+      console.log("Dismissing - text after cursor");
+      // There's actual text after the cursor, dismiss any existing completion
+      this.setState({
+        completionSuggestion: "",
+        completionIsLoading: false,
+      });
+      return;
+    }
+
+    console.log("Requesting completion");
     const cursorPos = prefix.length;
 
     // Get file name from the editor (would need to pass it as a prop)
@@ -344,6 +350,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
 
     // Trigger completion request asynchronously
     onRequestCompletion(context).then((suggestions) => {
+      console.log("Completion response:", suggestions);
       if (suggestions && suggestions.length > 0) {
         // Get first suggestion (Phase 1 - single suggestion)
         this.setState({
@@ -756,6 +763,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
 
     // Request completion after user stops typing
     if (this.debouncedRequestCompletion) {
+      console.log("Setting loading state and calling debouncedRequestCompletion");
       this.setState({ completionIsLoading: true });
       this.debouncedRequestCompletion();
     }
