@@ -159,7 +159,10 @@ export class RichMarkdownEditorProvider
     };
     this.editors.set(documentUri, ctx);
     
-    webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
+    webviewPanel.webview.html = this.getHtmlForWebview(
+      webviewPanel.webview,
+      documentUri
+    );
 
     // Register message handlers
     messageBroker.registerHandler(
@@ -344,7 +347,10 @@ export class RichMarkdownEditorProvider
   /**
    * Get the static html used for the editor webviews.
    */
-  private getHtmlForWebview(webview: vscode.Webview): string {
+  private getHtmlForWebview(
+    webview: vscode.Webview,
+    documentUri: string
+  ): string {
     const fontSize = vscode.workspace
       .getConfiguration("rich-markdown-editor")
       .get("fontSize", DEFAULT_FONT_SIZE);
@@ -397,6 +403,9 @@ export class RichMarkdownEditorProvider
 			</head>
 			<body>
         <main id="app">Loading...</main>
+        <script nonce="${nonce}">
+          window.__RME_DOCUMENT_URI__ = ${JSON.stringify(documentUri)};
+        </script>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
