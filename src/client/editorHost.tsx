@@ -159,6 +159,11 @@ export function EditorHost(props: IEditorHostProps) {
     setMarkdownText(markdown);
   }, []);
 
+  const handleSave = useCallback(() => {
+    // Flush any pending debounced changes before save completes
+    handleOutlineChange.flush();
+  }, [handleOutlineChange]);
+
   useEffect(() => {
     // Send ready message through the message broker
     const msg = readyMessage.request();
@@ -178,6 +183,7 @@ export function EditorHost(props: IEditorHostProps) {
       uploadImage={uploadImage}
       onClickLink={handleClickLink}
       onGetImageData={urlLookUp}
+      onSave={handleSave}
       autoFocus
     />
   );
@@ -202,7 +208,11 @@ export function EditorHost(props: IEditorHostProps) {
           type="button"
           className="btn"
           onClick={() => {
-            rerenderEditor(markdownText);
+            // Flush any pending debounced changes before switching modes
+            handleOutlineChange.flush();
+            // Use the ref value, not state, because handleOutlineChange updates the ref
+            // but intentionally doesn't update state (to avoid cursor loss in rich text mode)
+            rerenderEditor(currentMarkdownRef.current);
             setEditMode(
               editMode === EditMode.RichText
                 ? EditMode.Markdown

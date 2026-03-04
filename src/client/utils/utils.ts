@@ -21,13 +21,34 @@ export function debounce<T extends (...args: any) => any>(
   timeout = 300
 ) {
   let timer: NodeJS.Timeout | undefined;
-  return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
+  let lastArgs: Parameters<T> | undefined;
+  let lastThis: ThisParameterType<T> | undefined;
+  
+  const debounced = function (this: ThisParameterType<T>, ...args: Parameters<T>) {
+    lastArgs = args;
+    lastThis = this;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = undefined;
-      func.apply(this, args);
+      func.apply(lastThis!, lastArgs!);
+      lastArgs = undefined;
+      lastThis = undefined;
     }, timeout);
   };
+  
+  debounced.flush = function() {
+    if (timer) {
+      clearTimeout(timer);
+      timer = undefined;
+      if (lastArgs !== undefined && lastThis !== undefined) {
+        func.apply(lastThis, lastArgs);
+        lastArgs = undefined;
+        lastThis = undefined;
+      }
+    }
+  };
+  
+  return debounced;
 }
 
 // https://github.com/outline/rich-markdown-editor/issues/532
