@@ -7,7 +7,7 @@ import { theme } from "./editor";
 export const vsCodeTheme = {
   ...theme,
   link: "var(--vscode-textLink-foreground)",
-  fontFamily: "var(--rich-markdown-editor-font-family)",
+  fontFamily: "var(--inkwell-md-font-family)",
   fontFamilyMono: "var(--vscode-editor-font-family)",
 
   background: "var(--vscode-editor-background)",

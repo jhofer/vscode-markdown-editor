@@ -1,6 +1,6 @@
 {
-  "name": "rich-markdown-editor-jonas",
-  "displayName": "Rich Markdown Editor Jonas",
+  "name": "inkwell-md",
+  "displayName": "inkwell.md",
   "version": "1.0.5",
   "description": "Edit markdown files in preview mode with a rich text editor",
   "categories": [
@@ -11,20 +11,20 @@
   "engines": {
     "vscode": "^1.75.0"
   },
-  "publisher": "patmood",
+  "publisher": "jhofer",
   "repository": {
     "type": "git",
-    "url": "https://github.com/patmood/rich-markdown-editor-vsc"
+    "url": "https://github.com/jhofer/vscode-markdown-editor"
   },
   "bugs": {
-    "url": "https://github.com/patmood/rich-markdown-editor-vsc/issues"
+    "url": "https://github.com/jhofer/vscode-markdown-editor/issues"
   },
-  "icon": "./icon.png",
+  "icon": "icon.png",
   "contributes": {
     "customEditors": [
       {
-        "viewType": "markdownCustom.richMarkdownEditorJonas",
-        "displayName": "Rich Markdown Editor",
+        "viewType": "inkwell.md",
+        "displayName": "inkwell.md",
         "selector": [
           {
             "filenamePattern": "*.md"
@@ -37,13 +37,13 @@
       }
     ],
     "properties": {
-      "rich-markdown-editor.fontSize": {
+      "inkwell-md.fontSize": {
         "type": "string",
         "markdownDescription": "Base font size",
         "default": "16px",
         "scope": "window"
       },
-      "rich-markdown-editor.fontFamily": {
+      "inkwell-md.fontFamily": {
         "type": "string",
         "markdownDescription": "Font family for rendering markdown",
         "default": "-apple-system, system-ui, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif",
@@ -57,7 +57,7 @@
     "editor",
     "preview"
   ],
-  "author": "",
+  "author": "jhofer",
   "license": "ISC",
   "scripts": {
     "vscode:prepublish": "npm run build",

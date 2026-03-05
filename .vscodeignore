@@ -1,2 +1,14 @@
 **/*.ts
 **/tsconfig.json
+.vscode/**
+.github/**
+src/**
+node_modules/**
+.gitignore
+.eslintrc.js
+jest.config.ts
+tsconfig.json
+.npmrc
+**/*.map
+coverage/**
+*.vsix
