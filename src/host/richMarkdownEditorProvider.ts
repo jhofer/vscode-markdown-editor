@@ -377,7 +377,7 @@ export class RichMarkdownEditorProvider
 
     const fontFamily = vscode.workspace
       .getConfiguration("inkwell-md")
-      .get("fontSize", DEFAULT_FONT_FAMILY);
+      .get("fontFamily", DEFAULT_FONT_FAMILY);
 
     // Local path to script and css for the webview
     const scriptUri = webview.asWebviewUri(
