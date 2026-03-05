@@ -39,7 +39,7 @@ export class RichMarkdownEditorProvider
     return providerRegistration;
   }
 
-  public static readonly viewType = "markdownCustom.richMarkdownEditorJonas";
+  public static readonly viewType = "inkwell.md";
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -372,11 +372,11 @@ export class RichMarkdownEditorProvider
     documentUri: string
   ): string {
     const fontSize = vscode.workspace
-      .getConfiguration("rich-markdown-editor")
+      .getConfiguration("inkwell-md")
       .get("fontSize", DEFAULT_FONT_SIZE);
 
     const fontFamily = vscode.workspace
-      .getConfiguration("rich-markdown-editor")
+      .getConfiguration("inkwell-md")
       .get("fontSize", DEFAULT_FONT_FAMILY);
 
     // Local path to script and css for the webview
@@ -404,10 +404,10 @@ export class RichMarkdownEditorProvider
 				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}';">
 
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Rich Markdown Editor</title>
+				<title>inkwell.md</title>
         <style>
           :root {
-            --rich-markdown-editor-font-family: ${fontFamily};
+            --inkwell-md-font-family: ${fontFamily};
           }
           body {
             margin: 0;

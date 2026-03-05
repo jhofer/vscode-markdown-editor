@@ -49,7 +49,7 @@ const logger = {
 
 export const initializeOutputChannel = (): void => {
   outputChannel.instance = vscode.window.createOutputChannel(
-    "Rich Markdown Editor"
+    "inkwell.md"
   );
   console.log = (obj: any) => logger.logDebug(obj);
 };
