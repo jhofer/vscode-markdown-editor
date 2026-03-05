@@ -147,7 +147,7 @@ class LinkEditor extends React.Component<Props, State> {
     }
   };
 
-  handleChange = (event): void => {
+  handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const value = event.target.value;
     this.setState({ value });
   };
