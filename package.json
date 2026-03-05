@@ -1,15 +1,16 @@
 {
   "name": "inkwell-md",
   "displayName": "inkwell.md",
-  "version": "1.0.5",
+  "version": "1.0.5-preview",
   "description": "Edit markdown files in preview mode with a rich text editor",
   "categories": [
+    "Formatters",
     "Other"
   ],
   "main": "./out/extension.js",
   "browser": "./out/extension.js",
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.95.0"
   },
   "publisher": "jhofer",
   "repository": {
@@ -68,7 +69,14 @@
     "watch-client": "npm run esbuild-client -- --watch",
     "watch-extension": "npm run esbuild-extension -- --watch",
     "lint": "eslint . --ext .ts,.tsx",
-    "test": "jest"
+    "test": "jest",
+    "package": "vsce package --no-dependencies",
+    "publish:latest": "vsce publish --pre-release --no-dependencies",
+    "publish:patch": "vsce publish patch --pre-release --no-dependencies",
+    "publish:minor": "vsce publish minor --pre-release --no-dependencies", 
+    "publish:major": "vsce publish major --pre-release --no-dependencies",
+    "publish:preview": "vsce publish --pre-release --no-dependencies",
+    "publish:fast": "npm run build && npm version patch && vsce publish --pre-release --no-dependencies"
   },
   "devDependencies": {
     "@types/fuzzy-search": "^2.1.1",

@@ -12,6 +12,9 @@ Perfect for writing docs, authoring blog posts, and editing markdown website con
 - Format with markdown syntax or slash commands
 - Syntax highlighting for code blocks
 - Easily add tables, checkboxes, dividers, quotes, links etc
+- **AI-powered completion suggestions** using GitHub Copilot (when available)
+- Smart completion that respects line endings and markdown context
+- Tab to accept, Escape to dismiss AI suggestions
 
 This extension replaces the default code editor for markdown files with a rich version, allowing you to "edit" in preview mode.
 
