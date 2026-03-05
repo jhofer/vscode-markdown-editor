@@ -19,7 +19,7 @@
   "bugs": {
     "url": "https://github.com/jhofer/vscode-markdown-editor/issues"
   },
-  "icon": "./icon.png",
+  "icon": "icon.png",
   "contributes": {
     "customEditors": [
       {
