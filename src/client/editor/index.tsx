@@ -145,8 +145,6 @@ export type Props = {
   onImageUploadStart?: () => void;
   onImageUploadStop?: () => void;
   onGetImageData?: (src: string) => string;
-  onCreateLink?: (title: string) => Promise<string>;
-  onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onRequestCompletion?: (context: { prefix: string; suffix: string; mdContent: string; cursorPos: number; fileName: string }) => Promise<string[]>;
   onClickLink: (href: string, event: MouseEvent) => void;
   onHoverLink?: (event: MouseEvent) => boolean;
@@ -935,17 +933,13 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
                   isTemplate={this.props.template === true}
                   onOpen={this.handleOpenSelectionMenu}
                   onClose={this.handleCloseSelectionMenu}
-                  onSearchLink={this.props.onSearchLink}
                   onClickLink={this.props.onClickLink}
-                  onCreateLink={this.props.onCreateLink}
                   tooltip={tooltip}
                 />
                 <LinkToolbar
                   view={this.view}
                   dictionary={dictionary}
                   isActive={this.state.linkMenuOpen}
-                  onCreateLink={this.props.onCreateLink}
-                  onSearchLink={this.props.onSearchLink}
                   onClickLink={this.props.onClickLink}
                   onShowToast={this.props.onShowToast}
                   onClose={this.handleCloseLinkMenu}

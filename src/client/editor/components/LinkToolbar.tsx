@@ -1,8 +1,7 @@
 import * as React from "react";
 import { EditorView } from "prosemirror-view";
-import LinkEditor, { SearchResult } from "./LinkEditor";
+import LinkEditor from "./LinkEditor";
 import FloatingToolbar from "./FloatingToolbar";
-import createAndInsertLink from "../commands/createAndInsertLink";
 import baseDictionary from "../dictionary";
 
 type Props = {
@@ -10,8 +9,6 @@ type Props = {
   view: EditorView;
   tooltip: typeof React.Component | React.FC<any>;
   dictionary: typeof baseDictionary;
-  onCreateLink?: (title: string) => Promise<string>;
-  onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onClickLink: (href: string, event: MouseEvent) => void;
   onShowToast?: (msg: string, code: string) => void;
   onClose: () => void;
@@ -57,43 +54,6 @@ export default class LinkToolbar extends React.Component<Props> {
     this.props.onClose();
   };
 
-  handleOnCreateLink = async (title: string) => {
-    const { dictionary, onCreateLink, view, onClose, onShowToast } = this.props;
-
-    onClose();
-    this.props.view.focus();
-
-    if (!onCreateLink) {
-      return;
-    }
-
-    const { dispatch, state } = view;
-    const { from, to } = state.selection;
-    if (from !== to) {
-      // selection must be collapsed
-      return;
-    }
-
-    const href = `creating#${title}…`;
-
-    // Insert a placeholder link
-    dispatch(
-      view.state.tr
-        .insertText(title, from, to)
-        .addMark(
-          from,
-          to + title.length,
-          state.schema.marks.link.create({ href })
-        )
-    );
-
-    createAndInsertLink(view, title, href, {
-      onCreateLink,
-      onShowToast,
-      dictionary,
-    });
-  };
-
   handleOnSelectLink = ({
     href,
     title,
@@ -127,7 +87,7 @@ export default class LinkToolbar extends React.Component<Props> {
   };
 
   render() {
-    const { onCreateLink, onClose, ...rest } = this.props;
+    const { onClose, ...rest } = this.props;
     const { selection } = this.props.view.state;
     const active = isActive(this.props);
 
@@ -137,7 +97,6 @@ export default class LinkToolbar extends React.Component<Props> {
           <LinkEditor
             from={selection.from}
             to={selection.to}
-            onCreateLink={onCreateLink ? this.handleOnCreateLink : undefined}
             onSelectLink={this.handleOnSelectLink}
             onRemoveLink={onClose}
             {...rest}
