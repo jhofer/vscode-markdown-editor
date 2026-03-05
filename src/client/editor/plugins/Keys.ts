@@ -37,6 +37,14 @@ export default class Keys extends Extension {
               return true;
             }
 
+            // Handle Arrow keys to dismiss completion (cursor movement)
+            if ((event.key === "ArrowLeft" || event.key === "ArrowRight" || 
+                 event.key === "ArrowUp" || event.key === "ArrowDown") && 
+                !isModKey(event) && this.options.onDismissCompletion) {
+              this.options.onDismissCompletion();
+              // Don't prevent default - let the cursor move normally
+            }
+
             if (view.state.selection instanceof AllSelection) {
               if (event.key === "ArrowUp") {
                 const selection = Selection.atStart(view.state.doc);

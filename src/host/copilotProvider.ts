@@ -15,29 +15,43 @@ export class CopilotProvider {
         return [];
       }
 
-      // Try to find Copilot models without specific family constraint
-      let models = await vscode.lm.selectChatModels({
-        vendor: "copilot",
-      });
+      // Define free tier models in order of preference
+      const freeModelPreferences = [
+        // GitHub Copilot free models (if available)
+        { vendor: "copilot", family: "gpt-3.5-turbo" },
+        { vendor: "copilot", family: "gpt-35-turbo" },
 
-      // If no Copilot models found, try any available model
-      if (models.length === 0) {
-        logger.logDebug("No Copilot vendor models, trying any vendor");
-        models = await vscode.lm.selectChatModels({});
+        // OpenAI free tier models
+        { vendor: "openai", family: "gpt-3.5-turbo" },
+        { vendor: "openai", family: "gpt-35-turbo" },
+
+        // Only use Copilot without specifying family as last resort
+        { vendor: "copilot" },
+      ];
+
+      let selectedModel = null;
+
+      // Try each free tier model preference in order
+      for (const preference of freeModelPreferences) {
+        const models = await vscode.lm.selectChatModels(preference);
+        if (models.length > 0) {
+          selectedModel = models[0];
+          logger.logDebug("Selected free tier model", { 
+            vendor: selectedModel.vendor, 
+            family: selectedModel.family,
+            name: selectedModel.name 
+          });
+          break;
+        }
       }
 
-      if (models.length === 0) {
-        logger.logDebug("No language models available at all");
+      // If no free tier models found, don't proceed
+      if (!selectedModel) {
+        logger.logDebug("No free tier models available - completion disabled to avoid costs");
         return [];
       }
 
-      logger.logDebug("Selected model", { 
-        vendor: models[0].vendor, 
-        family: models[0].family,
-        name: models[0].name 
-      });
-
-      const model = models[0];
+      const model = selectedModel;
 
       // Build a concise prompt for completion
       // Keep context minimal to reduce latency
@@ -84,25 +98,33 @@ export class CopilotProvider {
       cursorPos: context.cursorPos,
       mdContentLength: context.mdContent.length,
       prefixPreview: prefix.substring(Math.max(0, prefix.length - 50)),
+      hasLineBreaksInPrefix: prefix.includes('\n'),
+      hasLineBreaksInSuffix: suffix.includes('\n'),
     });
 
-    // Limit context to reasonable size (last 500 chars)
-    const contextSize = 500;
+    // Limit context to reasonable size (last 1000 chars for better multi-line context)
+    const contextSize = 1000;
     const relevantPrefix =
       prefix.length > contextSize
         ? "..." + prefix.substring(prefix.length - contextSize)
         : prefix;
 
-    return `You are a helpful markdown editor assistant. Continue the markdown text naturally.
+    // Preserve line breaks and whitespace in the context
+    const contextWithCursor = `${relevantPrefix}█${suffix}`;
+
+    return `You are a helpful markdown editor assistant. Continue the markdown text naturally at the cursor position.
 
 File: ${fileName}
 
 Current text:
-${relevantPrefix}█${suffix}
+${contextWithCursor}
 
-Complete the text at the cursor (█) with a single sentence or phrase. 
-Return ONLY the completion text, nothing else.
-Keep it brief and relevant to the context.`;
+Complete the text at the cursor (█). You can provide:
+- Single words or phrases to continue the current line
+- Multiple lines if it makes sense contextually (lists, paragraphs, code blocks, etc.)
+- Proper markdown formatting including line breaks where appropriate
+
+Return ONLY the completion text, nothing else. Preserve proper markdown structure and formatting.`;
   }
 
   /**
@@ -148,12 +170,21 @@ Keep it brief and relevant to the context.`;
         return [];
       }
 
-      if (fullText.trim()) {
+      // Clean up the response but preserve meaningful line breaks
+      const cleanedText = fullText
+        .replace(/^```[\w]*\n?/g, '') // Remove opening code fence if present
+        .replace(/\n?```$/g, '')      // Remove closing code fence if present
+        .replace(/^\n+/, '')          // Remove leading newlines
+        .replace(/\n+$/, '');         // Remove trailing newlines
+
+      if (cleanedText.length > 0) {
         logger.logDebug("Extracted text from stream", { 
-          length: fullText.length,
-          preview: fullText.substring(0, 100)
+          length: cleanedText.length,
+          hasLineBreaks: cleanedText.includes('\n'),
+          lineCount: cleanedText.split('\n').length,
+          preview: cleanedText.substring(0, 150)
         });
-        return [fullText.trim()];
+        return [cleanedText];
       }
 
       return [];

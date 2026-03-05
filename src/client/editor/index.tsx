@@ -261,6 +261,16 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
   };
 
   /**
+   * Dismiss the current completion suggestion
+   */
+  dismissCompletion = () => {
+    this.setState({
+      completionSuggestion: "",
+      completionIsLoading: false,
+    });
+  };
+
+  /**
    * Request completion from Copilot based on current editor state
    */
   /**
@@ -312,18 +322,30 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       state.doc.cut(state.selection.from)
     );
 
+    // Check if cursor is at end of current line (not end of document)
+    const firstLineBreakIndex = suffix.search(/[\r\n]/);
+    const textOnCurrentLine = firstLineBreakIndex >= 0 ? suffix.substring(0, firstLineBreakIndex) : suffix;
+    
+    // Remove markdown line-ending syntax that shouldn't block completion
+    const cleanedTextOnLine = textOnCurrentLine.replace(/^\s*\\+\s*$/, '').trim();
+    
     console.log("Completion check:", {
       suffixLength: suffix.length,
       suffixTrimmed: suffix.trim().length,
       suffixPreview: suffix.substring(0, 50),
+      textOnCurrentLine,
+      cleanedTextOnLine,
+      isAtEndOfLine: cleanedTextOnLine.length === 0,
+      firstLineBreakIndex,
+      hasContentAfterOnSameLine: cleanedTextOnLine.length > 0
     });
 
-    // Only propose completion if cursor is at end of line (no actual text after cursor)
-    // Check for word characters or punctuation, not markdown artifacts like \n or \\
-    const hasContentAfter = /[a-zA-Z0-9\s\p{L}\p{N}!?.,;:—–\-()[\]{}]/u.test(suffix.trim());
-    if (hasContentAfter && suffix.trim().length > 0) {
-      console.log("Dismissing - text after cursor");
-      // There's actual text after the cursor, dismiss any existing completion
+    // Only propose completion if cursor is at end of current line
+    // Allow completion if there's only markdown line-ending syntax (like trailing \)
+    const hasContentAfterOnSameLine = cleanedTextOnLine.length > 0;
+    if (hasContentAfterOnSameLine) {
+      console.log("Dismissing - meaningful text after cursor on same line");
+      // There's actual meaningful text after the cursor on the same line, dismiss any existing completion
       this.setState({
         completionSuggestion: "",
         completionIsLoading: false,
@@ -697,6 +719,12 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
           this.state.applyTransaction(transaction);
 
         this.updateState(state);
+
+        // If any selections changed (cursor moved), dismiss completion
+        if (transactions.some((tr) => tr.selectionSet) && 
+            (self.state.completionSuggestion || self.state.completionIsLoading)) {
+          self.dismissCompletion();
+        }
 
         // If any of the transactions being dispatched resulted in the doc
         // changing then call our own change handler to let the outside world
