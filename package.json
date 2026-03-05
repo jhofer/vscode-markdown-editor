@@ -1,7 +1,7 @@
 {
   "name": "inkwell-md",
   "displayName": "inkwell.md",
-  "version": "1.0.5-preview",
+  "version": "1.0.5",
   "description": "Edit markdown files in preview mode with a rich text editor",
   "categories": [
     "Formatters",
@@ -73,7 +73,7 @@
     "package": "vsce package --no-dependencies",
     "publish:latest": "vsce publish --pre-release --no-dependencies",
     "publish:patch": "vsce publish patch --pre-release --no-dependencies",
-    "publish:minor": "vsce publish minor --pre-release --no-dependencies", 
+    "publish:minor": "vsce publish minor --pre-release --no-dependencies",
     "publish:major": "vsce publish major --pre-release --no-dependencies",
     "publish:preview": "vsce publish --pre-release --no-dependencies",
     "publish:fast": "npm run build && npm version patch && vsce publish --pre-release --no-dependencies"
