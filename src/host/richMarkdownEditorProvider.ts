@@ -9,6 +9,7 @@ import { HostMessageBroker } from "./hostMessageBroker";
 import { IMessage } from "../common/messages";
 import { updateMarkdownMessage } from "../common/messages/updateMarkdown";
 import { uploadImageMessage } from "../common/messages/uploadImage";
+import { searchLinkMessage } from "../common/messages/searchLink";
 import { openLinkMessage } from "../common/messages/openLink";
 import { readyMessage } from "../common/messages/ready";
 import { initMessage } from "../common/messages/init";
@@ -252,6 +253,20 @@ export class RichMarkdownEditorProvider
         } else {
           vscode.env.openExternal(vscode.Uri.parse(href));
         }
+      }
+    );
+
+    // Register handler for link search
+    messageBroker.registerHandler(
+      searchLinkMessage.requestType,
+      (message: unknown) => {
+        const msg = message as IMessage<string>;
+        const searchTerm = msg.payload;
+        logger.logDebug("searchLink", searchTerm);
+        const result = this.fileSearchResult(searchTerm, ctx.document);
+        logger.logDebug("searchLink result", result);
+        const responseMsg = searchLinkMessage.response(result);
+        ctx.messageBroker.sendMessage(responseMsg);
       }
     );
 

@@ -7,6 +7,7 @@ import {
 } from "./utils/utils";
 import { fileToDataUrl } from "../common/fileToDataUrl";
 import { vsCodeTheme } from "./theme";
+import { SearchResult, toSearchResult } from "./editor/components/LinkEditor";
 import Editor from "./editor";
 import "./style.css";
 import { useBidirectionalEvent } from "./messages/useBedirectonalEvent";
@@ -14,6 +15,7 @@ import { vscode } from "./utils/vscode";
 import { useVSCodeState } from "./utils/useVSCodeState";
 import { HostMessageBroker } from "../host/hostMessageBroker";
 import { useMessageBroker } from "./messages/clientMessageBroker";
+import { searchLinkMessage } from "../common/messages/searchLink";
 import { requestCompletionMessage } from "../common/messages/requestCompletion";
 import { useImages } from "./useImages";
 import { updateMarkdownMessage } from "../common/messages/updateMarkdown";
@@ -100,6 +102,7 @@ export function EditorHost(props: IEditorHostProps) {
     messageBroker,
     requestCompletionMessage
   );
+  const searchLink = useBidirectionalEvent(messageBroker, searchLinkMessage);
   const [uploadImage, urlLookUp] = useImages(messageBroker, urlLookupRef);
 
   // Memoize the debounced handler to prevent recreation on every render
@@ -132,6 +135,15 @@ export function EditorHost(props: IEditorHostProps) {
   );
 
   // Memoize callbacks passed to Editor to prevent unnecessary re-renders
+  const handleSearchLink = useCallback(
+    async (term: string): Promise<SearchResult[]> => {
+      const links = await searchLink(term);
+      const searchResult = links.map(toSearchResult);
+      return searchResult;
+    },
+    [searchLink]
+  );
+
   const handleClickLink = useCallback(
     (href: string, event: MouseEvent) => {
       const msg = openLinkMessage.request(href);
@@ -178,6 +190,7 @@ export function EditorHost(props: IEditorHostProps) {
       defaultValue={markdownText}
       value={markdownText}
       onChange={handleOutlineChange}
+      onSearchLink={handleSearchLink}
       onRequestCompletion={handleRequestCompletion}
       uploadImage={uploadImage}
       onClickLink={handleClickLink}

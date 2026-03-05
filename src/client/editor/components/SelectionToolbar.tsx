@@ -10,7 +10,7 @@ import getFormattingMenuItems from "../menus/formatting";
 import getImageMenuItems from "../menus/image";
 import getDividerMenuItems from "../menus/divider";
 import FloatingToolbar from "./FloatingToolbar";
-import LinkEditor from "./LinkEditor";
+import LinkEditor, { SearchResult } from "./LinkEditor";
 import ToolbarMenu from "./ToolbarMenu";
 import filterExcessSeparators from "../lib/filterExcessSeparators";
 import isMarkActive from "../queries/isMarkActive";
@@ -29,6 +29,7 @@ type Props = {
   commands: Record<string, any>;
   onOpen: () => void;
   onClose: () => void;
+  onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onClickLink: (href: string, event: MouseEvent) => void;
   onShowToast?: (msg: string, code: string) => void;
   view: EditorView;

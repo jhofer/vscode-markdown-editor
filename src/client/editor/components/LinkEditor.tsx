@@ -3,6 +3,7 @@ import { setTextSelection } from "prosemirror-utils";
 import { EditorView } from "prosemirror-view";
 import { Mark } from "prosemirror-model";
 import {
+  DocumentIcon,
   CloseIcon,
   TrashIcon,
   OpenIcon,
@@ -13,6 +14,7 @@ import theme from "../styles/theme";
 import Flex from "./Flex";
 import Input from "./Input";
 import ToolbarButton from "./ToolbarButton";
+import LinkSearchResult from "./LinkSearchResult";
 import baseDictionary from "../dictionary";
 
 export type SearchResult = {
@@ -37,6 +39,7 @@ type Props = {
   tooltip: typeof React.Component | React.FC<any>;
   dictionary: typeof baseDictionary;
   onRemoveLink?: () => void;
+  onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onSelectLink: (options: {
     href: string;
     title?: string;
@@ -50,7 +53,12 @@ type Props = {
 };
 
 type State = {
+  results: {
+    [keyword: string]: SearchResult[];
+  };
   value: string;
+  previousValue: string;
+  selectedIndex: number;
 };
 
 class LinkEditor extends React.Component<Props, State> {
@@ -59,7 +67,10 @@ class LinkEditor extends React.Component<Props, State> {
   initialSelectionLength = this.props.to - this.props.from;
 
   state: State = {
+    selectedIndex: -1,
     value: this.href,
+    previousValue: "",
+    results: {},
   };
 
   get href(): string {
@@ -123,9 +134,18 @@ class LinkEditor extends React.Component<Props, State> {
     switch (event.key) {
       case "Enter": {
         event.preventDefault();
-        const { value } = this.state;
-        // saves the raw input as href
-        this.save(value, value);
+        const { selectedIndex, value } = this.state;
+        const results = this.state.results[value] || [];
+
+        if (selectedIndex >= 0) {
+          const result = results[selectedIndex];
+          if (result) {
+            this.save(result.url, result.title);
+          }
+        } else {
+          // saves the raw input as href
+          this.save(value, value);
+        }
 
         if (this.initialSelectionLength) {
           this.moveSelectionToEnd();
@@ -144,12 +164,65 @@ class LinkEditor extends React.Component<Props, State> {
         }
         return;
       }
+
+      case "ArrowUp": {
+        if (event.shiftKey) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const prevIndex = this.state.selectedIndex - 1;
+
+        this.setState({
+          selectedIndex: Math.max(-1, prevIndex),
+        });
+        return;
+      }
+
+      case "ArrowDown":
+        if (event.shiftKey) return;
+      case "Tab": {
+        event.preventDefault();
+        event.stopPropagation();
+        const { selectedIndex, value } = this.state;
+        const results = this.state.results[value] || [];
+        const total = results.length - 1;
+        const nextIndex = selectedIndex + 1;
+
+        this.setState({
+          selectedIndex: Math.min(nextIndex, total),
+        });
+        return;
+      }
     }
   };
 
-  handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+  handleFocusLink = (selectedIndex: number) => {
+    this.setState({ selectedIndex });
+  };
+
+  handleChange = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const value = event.target.value;
-    this.setState({ value });
+
+    this.setState({
+      value,
+      selectedIndex: -1,
+    });
+
+    const trimmedValue = value.trim();
+
+    if (trimmedValue && this.props.onSearchLink) {
+      try {
+        const results = await this.props.onSearchLink(trimmedValue);
+        this.setState((state) => ({
+          results: {
+            ...state.results,
+            [trimmedValue]: results,
+          },
+          previousValue: trimmedValue,
+        }));
+      } catch (error) {
+        console.error(error);
+      }
+    }
   };
 
   handlePaste = (): void => {
@@ -159,6 +232,15 @@ class LinkEditor extends React.Component<Props, State> {
   handleOpenLink = (event): void => {
     event.preventDefault();
     this.props.onClickLink(this.href, event);
+  };
+
+  handleSelectLink = (url: string, title: string) => (event: React.MouseEvent) => {
+    event.preventDefault();
+    this.save(url, title);
+
+    if (this.initialSelectionLength) {
+      this.moveSelectionToEnd();
+    }
   };
 
   handleRemoveLink = (): void => {
@@ -187,9 +269,15 @@ class LinkEditor extends React.Component<Props, State> {
 
   render() {
     const { dictionary, theme } = this.props;
-    const { value } = this.state;
+    const { value, selectedIndex } = this.state;
+    const results =
+      this.state.results[value.trim()] ||
+      this.state.results[this.state.previousValue] ||
+      [];
 
     const Tooltip = this.props.tooltip;
+
+    const showResults = !!this.suggestedLinkTitle && results.length > 0;
 
     return (
       <Wrapper>
@@ -216,6 +304,22 @@ class LinkEditor extends React.Component<Props, State> {
             )}
           </Tooltip>
         </ToolbarButton>
+
+        {showResults && (
+          <SearchResults id="link-search-results">
+            {results.map((result, index) => (
+              <LinkSearchResult
+                key={result.url}
+                title={result.title}
+                subtitle={result.subtitle}
+                icon={<DocumentIcon color={theme.toolbarItem} />}
+                onMouseOver={() => this.handleFocusLink(index)}
+                onClick={this.handleSelectLink(result.url, result.title)}
+                selected={index === selectedIndex}
+              />
+            ))}
+          </SearchResults>
+        )}
       </Wrapper>
     );
   }
@@ -226,6 +330,31 @@ const Wrapper = styled(Flex)`
   margin-right: -8px;
   min-width: 336px;
   pointer-events: all;
+`;
+
+const SearchResults = styled.ol`
+  background: ${(props) => props.theme.toolbarBackground};
+  position: absolute;
+  top: 100%;
+  width: 100%;
+  height: auto;
+  left: 0;
+  padding: 4px 8px 8px;
+  margin: 0;
+  margin-top: -3px;
+  margin-bottom: 0;
+  border-radius: 0 0 4px 4px;
+  overflow-y: auto;
+  max-height: 25vh;
+
+  @media (hover: none) and (pointer: coarse) {
+    position: fixed;
+    top: auto;
+    bottom: 40px;
+    border-radius: 0;
+    max-height: 50vh;
+    padding: 8px 8px 4px;
+  }
 `;
 
 export default withTheme(LinkEditor);

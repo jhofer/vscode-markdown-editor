@@ -1,6 +1,6 @@
 import * as React from "react";
 import { EditorView } from "prosemirror-view";
-import LinkEditor from "./LinkEditor";
+import LinkEditor, { SearchResult } from "./LinkEditor";
 import FloatingToolbar from "./FloatingToolbar";
 import baseDictionary from "../dictionary";
 
@@ -10,6 +10,7 @@ type Props = {
   tooltip: typeof React.Component | React.FC<any>;
   dictionary: typeof baseDictionary;
   onClickLink: (href: string, event: MouseEvent) => void;
+  onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onShowToast?: (msg: string, code: string) => void;
   onClose: () => void;
 };
