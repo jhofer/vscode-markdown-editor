@@ -76,7 +76,7 @@
     "publish:minor": "vsce publish minor --pre-release --no-dependencies",
     "publish:major": "vsce publish major --pre-release --no-dependencies",
     "publish:preview": "vsce publish --pre-release --no-dependencies",
-    "publish:fast": "npm run build && npm version patch && vsce publish --pre-release --no-dependencies"
+    "publish:fast": "npm version patch && npm run build  && vsce publish --pre-release --no-dependencies"
   },
   "devDependencies": {
     "@types/fuzzy-search": "^2.1.1",

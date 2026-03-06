@@ -61,6 +61,11 @@ export class CopilotProvider {
         promptLength: prompt.length,
         promptPreview: prompt.substring(0, 200),
       });
+      
+      return []
+      // Feature is burning tokens too quickly during testing - returning empty suggestions for now
+      
+
 
       // Request completion from the model
       const messages: vscode.LanguageModelChatMessage[] = [
