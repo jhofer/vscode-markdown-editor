@@ -15,18 +15,12 @@ export class CopilotProvider {
         return [];
       }
 
-      // Define free tier models in order of preference
+      // Define free tier models in order of preference (fastest first)
       const freeModelPreferences = [
-        // GitHub Copilot free models (if available)
-        { vendor: "copilot", family: "gpt-3.5-turbo" },
-        { vendor: "copilot", family: "gpt-35-turbo" },
-
-        // OpenAI free tier models
-        { vendor: "openai", family: "gpt-3.5-turbo" },
-        { vendor: "openai", family: "gpt-35-turbo" },
-
-        // Only use Copilot without specifying family as last resort
-        { vendor: "copilot" },
+        // Fastest Copilot free models (2026)
+        { vendor: "copilot", family: "gpt-4o-mini" },
+        { vendor: "copilot", family: "gpt-5-mini" },
+        { vendor: "copilot", family: "claude-haiku-4.5" },
       ];
 
       let selectedModel = null;
@@ -34,20 +28,29 @@ export class CopilotProvider {
       // Try each free tier model preference in order
       for (const preference of freeModelPreferences) {
         const models = await vscode.lm.selectChatModels(preference);
+
         if (models.length > 0) {
-          selectedModel = models[0];
-          logger.logDebug("Selected free tier model", { 
-            vendor: selectedModel.vendor, 
-            family: selectedModel.family,
-            name: selectedModel.name 
-          });
+          selectedModel = models.find(
+            (model) =>
+              model.vendor === preference.vendor &&
+              model.family === preference.family,
+          );
+          if (selectedModel) {
+            logger.logDebug("Selected free tier model", {
+              vendor: selectedModel.vendor,
+              family: selectedModel.family,
+              name: selectedModel.name,
+            });
+          }
           break;
         }
       }
 
       // If no free tier models found, don't proceed
       if (!selectedModel) {
-        logger.logDebug("No free tier models available - completion disabled to avoid costs");
+        logger.logDebug(
+          "No free tier models available - completion disabled to avoid costs",
+        );
         return [];
       }
 
@@ -57,15 +60,7 @@ export class CopilotProvider {
       // Keep context minimal to reduce latency
       const prompt = this.buildCompletionPrompt(context);
 
-      logger.logDebug("Sending prompt to Copilot", {
-        promptLength: prompt.length,
-        promptPreview: prompt.substring(0, 200),
-      });
-      
-      return []
-      // Feature is burning tokens too quickly during testing - returning empty suggestions for now
-      
-
+      logger.logDebug("Sending prompt to Copilot", prompt);
 
       // Request completion from the model
       const messages: vscode.LanguageModelChatMessage[] = [
@@ -75,7 +70,7 @@ export class CopilotProvider {
       const response = await model.sendRequest(
         messages,
         {},
-        new vscode.CancellationTokenSource().token
+        new vscode.CancellationTokenSource().token,
       );
 
       // Parse the response and extract suggestions
@@ -95,48 +90,35 @@ export class CopilotProvider {
    * Build a focused prompt for markdown continuation
    */
   private buildCompletionPrompt(context: CompletionContext): string {
-    const { prefix, suffix, fileName } = context;
+    const { prefix, suffix } = context;
 
-    logger.logDebug("Completion context", {
-      prefixLength: prefix.length,
-      suffixLength: suffix.length,
-      cursorPos: context.cursorPos,
-      mdContentLength: context.mdContent.length,
-      prefixPreview: prefix.substring(Math.max(0, prefix.length - 50)),
-      hasLineBreaksInPrefix: prefix.includes('\n'),
-      hasLineBreaksInSuffix: suffix.includes('\n'),
-    });
+    logger.logDebug("Completion context", context);
 
-    // Limit context to reasonable size (last 1000 chars for better multi-line context)
-    const contextSize = 1000;
-    const relevantPrefix =
-      prefix.length > contextSize
-        ? "..." + prefix.substring(prefix.length - contextSize)
-        : prefix;
+    const contextSize =200;
+    const prefixTail = prefix.slice(-contextSize); // Last  chars before cursor
+    const suffixHead = suffix.slice(0, contextSize); // First chars after cursor
 
     // Preserve line breaks and whitespace in the context
-    const contextWithCursor = `${relevantPrefix}█${suffix}`;
+    const contextWithCursor = `${prefixTail}{cursorPos}${suffixHead}`;
 
     return `You are a helpful markdown editor assistant. Continue the markdown text naturally at the cursor position.
-
-File: ${fileName}
-
-Current text:
-${contextWithCursor}
-
-Complete the text at the cursor (█). You can provide:
+Complete the text at the cursor ({cursorPos}). You can provide:
 - Single words or phrases to continue the current line
 - Multiple lines if it makes sense contextually (lists, paragraphs, code blocks, etc.)
 - Proper markdown formatting including line breaks where appropriate
 
-Return ONLY the completion text, nothing else. Preserve proper markdown structure and formatting.`;
+Return ONLY the text after the cursor ({cursorPos}) even if it isnt a complete sentence, nothing else. Preserve proper markdown structure and formatting.
+
+Current text:
+${contextWithCursor}
+`;
   }
 
   /**
    * Parse the language model response into suggestions
    */
   private async parseResponse(
-    response: vscode.LanguageModelChatResponse
+    response: vscode.LanguageModelChatResponse,
   ): Promise<string[]> {
     try {
       if (!response) {
@@ -145,7 +127,7 @@ Return ONLY the completion text, nothing else. Preserve proper markdown structur
 
       // Response.text is an async iterable stream - we need to consume it
       const textStream = (response as any).text;
-      
+
       if (!textStream) {
         return [];
       }
@@ -167,39 +149,38 @@ Return ONLY the completion text, nothing else. Preserve proper markdown structur
           }
         }
       } else {
-        logger.logDebug("Text stream is not iterable", { 
+        logger.logDebug("Text stream is not iterable", {
           hasAsyncIterator: Symbol.asyncIterator in textStream,
           hasSyncIterator: Symbol.iterator in textStream,
-          keys: Object.keys(textStream).slice(0, 5)
+          keys: Object.keys(textStream).slice(0, 5),
         });
         return [];
       }
 
       // Clean up the response but preserve meaningful line breaks
       const cleanedText = fullText
-        .replace(/^```[\w]*\n?/g, '') // Remove opening code fence if present
-        .replace(/\n?```$/g, '')      // Remove closing code fence if present
-        .replace(/^\n+/, '')          // Remove leading newlines
-        .replace(/\n+$/, '');         // Remove trailing newlines
+        .replace(/^```[\w]*\n?/g, "") // Remove opening code fence if present
+        .replace(/\n?```$/g, "") // Remove closing code fence if present
+        .replace(/^\n+/, "") // Remove leading newlines
+        .replace(/\n+$/, ""); // Remove trailing newlines
 
       if (cleanedText.length > 0) {
-        logger.logDebug("Extracted text from stream", { 
+        logger.logDebug("Extracted text from stream", {
           length: cleanedText.length,
-          hasLineBreaks: cleanedText.includes('\n'),
-          lineCount: cleanedText.split('\n').length,
-          preview: cleanedText.substring(0, 150)
+          hasLineBreaks: cleanedText.includes("\n"),
+          lineCount: cleanedText.split("\n").length,
+          preview: cleanedText.substring(0, 150),
         });
         return [cleanedText];
       }
 
       return [];
     } catch (error) {
-      logger.logDebug("Error parsing response", { 
+      logger.logDebug("Error parsing response", {
         error: String(error),
-        errorMessage: (error as any).message
+        errorMessage: (error as any).message,
       });
       return [];
     }
   }
 }
-

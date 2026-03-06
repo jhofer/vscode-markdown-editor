@@ -30,7 +30,6 @@ import headingToSlug from "./lib/headingToSlug";
 
 // styles
 import { StyledEditor } from "./styles/editor";
-import { InlineCompletion } from "./components/InlineCompletion";
 
 // nodes
 import ReactNode from "./nodes/ReactNode";
@@ -66,6 +65,7 @@ import Link from "./marks/Link";
 import Strikethrough from "./marks/Strikethrough";
 import TemplatePlaceholder from "./marks/Placeholder";
 import Underline from "./marks/Underline";
+import AICompletion from "./marks/AICompletion";
 
 // plugins
 import BlockMenuTrigger from "./plugins/BlockMenuTrigger";
@@ -167,8 +167,6 @@ type State = {
   linkMenuOpen: boolean;
   blockMenuSearch: string;
   emojiMenuOpen: boolean;
-  completionSuggestion: string;
-  completionIsLoading: boolean;
 };
 
 type Step = {
@@ -205,8 +203,6 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     linkMenuOpen: false,
     blockMenuSearch: "",
     emojiMenuOpen: false,
-    completionSuggestion: "",
-    completionIsLoading: false,
   };
 
   isBlurred: boolean;
@@ -227,7 +223,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
   marks: { [name: string]: MarkSpec };
   commands: Record<string, any>;
   rulePlugins: PluginSimple[];
-  debouncedRequestCompletion: ((...args: any[]) => void) & { flush(): void };
+  completionOriginalState: EditorState | null;
 
   componentDidMount() {
     this.init();
@@ -246,69 +242,91 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
   }
 
   /**
-   * Accept the current completion suggestion and insert it at cursor
+   * Accept the current AI completion by removing the mark but keeping the text
    */
   acceptCompletion = () => {
-    const { completionSuggestion } = this.state;
-    if (!completionSuggestion) return;
+    const { state } = this.view;
+    const { doc } = state;
+    const markType = state.schema.marks.ai_completion;
 
-    const { from, to } = this.view.state.selection;
-    const tr = this.view.state.tr.insertText(completionSuggestion, to, to);
-    this.view.dispatch(tr);
+    if (!markType) {
+      console.log("AI completion mark type not found");
+      return;
+    }
 
-    // Clear the suggestion after accepting
-    this.dismissCompletion();
+    let tr = state.tr;
+    let hasAICompletion = false;
+
+    // Find all AI completion marks and remove them
+    doc.descendants((node, pos) => {
+      if (node.marks) {
+        const aiMark = node.marks.find(m => m.type.name === "ai_completion");
+        if (aiMark) {
+          hasAICompletion = true;
+          const from = pos;
+          const to = pos + node.nodeSize;
+          tr = tr.removeMark(from, to, markType);
+        }
+      }
+      return true;
+    });
+
+    if (hasAICompletion) {
+      this.view.dispatch(tr);
+      this.completionOriginalState = null;
+      console.log("AI completion accepted");
+    }
   };
 
   /**
-   * Dismiss the current completion suggestion
+   * Reject the current AI completion by restoring the original editor state
    */
   dismissCompletion = () => {
-    this.setState({
-      completionSuggestion: "",
-      completionIsLoading: false,
-    });
+    if (this.completionOriginalState) {
+      // Restore the original state (removes AI completion text and marks)
+      const tr = this.view.state.tr.setSelection(this.completionOriginalState.selection);
+      this.view.updateState(this.completionOriginalState);
+      this.completionOriginalState = null;
+      console.log("AI completion rejected - state restored");
+    }
   };
 
   /**
-   * Request completion from Copilot based on current editor state
+   * Check if there are any AI completion marks in the document
    */
+  hasAICompletion = (): boolean => {
+    const { state } = this.view;
+    const { doc } = state;
+    let hasAI = false;
+
+    doc.descendants((node) => {
+      if (node.marks) {
+        const aiMark = node.marks.find(m => m.type.name === "ai_completion");
+        if (aiMark) {
+          hasAI = true;
+          return false; // Stop iteration
+        }
+      }
+      return true;
+    });
+
+    return hasAI;
+  };
+
   /**
-   * Calculate cursor position in pixels relative to the editor
+   * Request completion from Copilot and insert it with AI mark at cursor
    */
-  getCursorCoords(): { top: number; left: number } | null {
-    try {
-      if (!this.view || !this.element) {
-        return null;
-      }
-
-      const { state } = this.view;
-      const coords = this.view.coordsAtPos(state.selection.from);
-      
-      if (!coords) {
-        return null;
-      }
-
-      // Get editor element's position
-      const editorRect = this.element.getBoundingClientRect();
-      
-      // Calculate relative position (offset from editor container)
-      return {
-        top: coords.top - editorRect.top - 1, // Slight upward offset
-        left: coords.left - editorRect.left,
-      };
-    } catch (error) {
-      console.error("Error calculating cursor coords:", error);
-      return null;
-    }
-  }
-
   requestCompletion = () => {
     console.log("requestCompletion called");
     const { onRequestCompletion } = this.props;
     if (!onRequestCompletion) {
       console.log("No onRequestCompletion callback");
       return;
+    }
+
+    // Clear any existing AI completions first
+    if (this.hasAICompletion()) {
+      this.dismissCompletion();
     }
 
     const { state } = this.view;
@@ -322,75 +340,73 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       state.doc.cut(state.selection.from)
     );
 
-    // Check if cursor is at end of current line (not end of document)
-    const firstLineBreakIndex = suffix.search(/[\r\n]/);
-    const textOnCurrentLine = firstLineBreakIndex >= 0 ? suffix.substring(0, firstLineBreakIndex) : suffix;
-    
-    // Remove markdown line-ending syntax that shouldn't block completion
-    const cleanedTextOnLine = textOnCurrentLine.replace(/^\s*\\+\s*$/, '').trim();
-    
-    console.log("Completion check:", {
-      suffixLength: suffix.length,
-      suffixTrimmed: suffix.trim().length,
-      suffixPreview: suffix.substring(0, 50),
-      textOnCurrentLine,
-      cleanedTextOnLine,
-      isAtEndOfLine: cleanedTextOnLine.length === 0,
-      firstLineBreakIndex,
-      hasContentAfterOnSameLine: cleanedTextOnLine.length > 0
-    });
-
-    // Only propose completion if cursor is at end of current line
-    // Allow completion if there's only markdown line-ending syntax (like trailing \)
-    const hasContentAfterOnSameLine = cleanedTextOnLine.length > 0;
-    if (hasContentAfterOnSameLine) {
-      console.log("Dismissing - meaningful text after cursor on same line");
-      // There's actual meaningful text after the cursor on the same line, dismiss any existing completion
-      this.setState({
-        completionSuggestion: "",
-        completionIsLoading: false,
-      });
-      return;
-    }
-
     console.log("Requesting completion");
     const cursorPos = prefix.length;
 
-    // Get file name from the editor (would need to pass it as a prop)
-    const fileName = "document.md";
-
+  
     const context = {
       prefix,
       suffix,
       mdContent: content,
       cursorPos,
-      fileName,
+    
     };
 
-    // Set loading state
-    this.setState({ completionIsLoading: true });
+    // Store the current state before insertion (for rejection)
+    this.completionOriginalState = state;
 
     // Trigger completion request asynchronously
     onRequestCompletion(context).then((suggestions) => {
       console.log("Completion response:", suggestions);
       if (suggestions && suggestions.length > 0) {
-        // Get first suggestion (Phase 1 - single suggestion)
-        this.setState({
-          completionSuggestion: suggestions[0],
-          completionIsLoading: false,
-        });
+        const suggestion = suggestions[0];
+        
+        // Insert the suggestion with AI completion mark
+        const { from } = this.view.state.selection;
+        const markType = this.view.state.schema.marks.ai_completion;
+        
+        if (!markType) {
+          console.error("AI completion mark type not found in schema");
+          return;
+        }
+
+        const tr = this.view.state.tr;
+        let to = from;
+
+        // Parse completion as markdown so formatting like headings/lists is rendered,
+        // and fall back to plain text insertion if parsing/replacement fails.
+        try {
+          const parsedSuggestion = this.parser.parse(suggestion);
+          const suggestionSlice = new Slice(parsedSuggestion.content, 0, 0);
+          tr.replaceSelection(suggestionSlice);
+          to = tr.selection.from;
+        } catch (error) {
+          console.warn("Failed to insert completion as markdown, using plain text", error);
+          tr.insertText(suggestion, from);
+          to = from + suggestion.length;
+        }
+
+        // Apply the AI completion mark to inserted inline content where possible
+        const mark = markType.create();
+        if (to > from) {
+          tr.addMark(from, to, mark);
+        }
+
+        // Move cursor to end of completion
+        tr.setSelection(Selection.near(tr.doc.resolve(to)));
+        
+        // Mark this transaction so we don't auto-reject it
+        tr.setMeta('aiCompletion', true);
+        
+        this.view.dispatch(tr);
+        console.log("AI completion inserted at position", from);
       } else {
-        this.setState({
-          completionSuggestion: "",
-          completionIsLoading: false,
-        });
+        console.log("No suggestions received");
+        this.completionOriginalState = null;
       }
     }).catch((error) => {
       console.error("Completion request error:", error);
-      this.setState({
-        completionSuggestion: "",
-        completionIsLoading: false,
-      });
+      this.completionOriginalState = null;
     });
   };
 
@@ -470,8 +486,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     this.nodeViews = this.createNodeViews();
     this.view = this.createView();
     this.commands = this.createCommands();
-    // Create debounced completion request
-    this.debouncedRequestCompletion = debounce(this.requestCompletion.bind(this), 300);
+    // Initialize completion state
+    this.completionOriginalState = null;
   }
 
   createExtensions() {
@@ -532,6 +548,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
           new Italic(),
           new TemplatePlaceholder(),
           new Underline(),
+          new AICompletion(),
           new Link({
             onKeyboardShortcut: this.handleOpenLinkMenu,
             onClickLink: this.props.onClickLink,
@@ -551,6 +568,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             onSave: this.handleSave,
             onSaveAndExit: this.handleSaveAndExit,
             onCancel: this.props.onCancel,
+            onRequestCompletion: this.requestCompletion,
             onAcceptCompletion: this.acceptCompletion,
             onDismissCompletion: this.dismissCompletion,
           }),
@@ -720,10 +738,11 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
 
         this.updateState(state);
 
-        // If any selections changed (cursor moved), dismiss completion
-        if (transactions.some((tr) => tr.selectionSet) && 
-            (self.state.completionSuggestion || self.state.completionIsLoading)) {
-          self.dismissCompletion();
+        // Auto-reject AI completion if user makes any edit (unless it's the AI insertion itself)
+        if (transactions.some((tr) => tr.docChanged && !tr.getMeta('aiCompletion'))) {
+          if (self.hasAICompletion()) {
+            self.dismissCompletion();
+          }
         }
 
         // If any of the transactions being dispatched resulted in the doc
@@ -788,13 +807,6 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     this.props.onChange(() => {
       return this.value();
     });
-
-    // Request completion after user stops typing
-    if (this.debouncedRequestCompletion) {
-      console.log("Setting loading state and calling debouncedRequestCompletion");
-      this.setState({ completionIsLoading: true });
-      this.debouncedRequestCompletion();
-    }
   };
 
   handleSave = () => {
@@ -945,13 +957,6 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
                 readOnlyWriteCheckboxes={readOnlyWriteCheckboxes}
                 ref={(ref) => (this.element = ref)}
               />
-              {!readOnly && (
-                <InlineCompletion
-                  suggestion={this.state.completionSuggestion}
-                  isLoading={this.state.completionIsLoading}
-                  cursorCoords={this.getCursorCoords()}
-                />
-              )}
             </div>
             {!readOnly && this.view && (
               <React.Fragment>

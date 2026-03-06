@@ -35,6 +35,7 @@ import Link from "./marks/Link";
 import Strikethrough from "./marks/Strikethrough";
 import TemplatePlaceholder from "./marks/Placeholder";
 import Underline from "./marks/Underline";
+import AICompletion from "./marks/AICompletion";
 
 const extensions = new ExtensionManager([
   new Doc(),
@@ -66,6 +67,7 @@ const extensions = new ExtensionManager([
   new Strikethrough(),
   new TemplatePlaceholder(),
   new Underline(),
+  new AICompletion(),
   new OrderedList(),
 ]);
 

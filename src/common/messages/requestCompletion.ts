@@ -9,7 +9,6 @@ export interface CompletionContext {
   suffix: string; // Text after cursor
   mdContent: string; // Full document content
   cursorPos: number; // Cursor position in document
-  fileName: string; // File being edited
 }
 
 const requestCompletionRequest = (context: CompletionContext) => ({

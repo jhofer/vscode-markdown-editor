@@ -23,26 +23,49 @@ export default class Keys extends Extension {
           // we can't use the keys bindings for this as we want to preventDefault
           // on the original keyboard event when handled
           handleKeyDown: (view, event) => {
-            // Handle Tab to accept completion
-            if (event.key === "Tab" && this.options.onAcceptCompletion) {
+            // Helper function to check if there are AI completion marks in the document
+            const hasAICompletion = () => {
+              const { state } = view;
+              const { doc } = state;
+              const markType = state.schema.marks.ai_completion;
+              
+              if (!markType) {
+                return false;
+              }
+
+              let hasAI = false;
+              doc.descendants((node) => {
+                if (node.marks) {
+                  const aiMark = node.marks.find(m => m.type === markType);
+                  if (aiMark) {
+                    hasAI = true;
+                    return false; // Stop iteration
+                  }
+                }
+                return true;
+              });
+              return hasAI;
+            };
+
+            // Handle Ctrl+Space (or Cmd+Space on Mac) to request AI completion
+            if (event.key === " " && isModKey(event) && this.options.onRequestCompletion) {
+              event.preventDefault();
+              this.options.onRequestCompletion();
+              return true;
+            }
+
+            // Handle Tab to accept completion - ONLY if AI completion exists
+            if (event.key === "Tab" && this.options.onAcceptCompletion && hasAICompletion()) {
               event.preventDefault();
               this.options.onAcceptCompletion();
               return true;
             }
 
-            // Handle Escape to dismiss completion (without Mod)
-            if (event.key === "Escape" && !isModKey(event) && this.options.onDismissCompletion) {
+            // Handle Escape to dismiss completion (without Mod) - ONLY if AI completion exists
+            if (event.key === "Escape" && !isModKey(event) && this.options.onDismissCompletion && hasAICompletion()) {
               event.preventDefault();
               this.options.onDismissCompletion();
               return true;
-            }
-
-            // Handle Arrow keys to dismiss completion (cursor movement)
-            if ((event.key === "ArrowLeft" || event.key === "ArrowRight" || 
-                 event.key === "ArrowUp" || event.key === "ArrowDown") && 
-                !isModKey(event) && this.options.onDismissCompletion) {
-              this.options.onDismissCompletion();
-              // Don't prevent default - let the cursor move normally
             }
 
             if (view.state.selection instanceof AllSelection) {
