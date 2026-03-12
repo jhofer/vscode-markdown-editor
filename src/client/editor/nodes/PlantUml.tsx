@@ -210,6 +210,7 @@ export default class PlantUml extends Node {
   parseMarkdown() {
     return {
       block: "plantuml",
+      noCloseToken: true,
     };
   }
 
