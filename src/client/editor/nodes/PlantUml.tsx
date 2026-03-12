@@ -7,8 +7,8 @@ import plantumlRule from "../rules/plantuml";
 
 const PLANTUML_SERVER = "https://www.plantuml.com/plantuml/svg/";
 
-const DEFAULT_DIAGRAM =
-  'Alice -> Bob: Authentication Request\nBob --> Alice: Authentication Response';
+const DEFAULT_DIAGRAM = `Alice -> Bob: Authentication Request
+Bob --> Alice: Authentication Response`;
 
 function encodeDiagram(source: string): string {
   try {
@@ -66,9 +66,15 @@ const PlantUmlView: React.FC<Props> = ({
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newSource = e.target.value;
 
-      // Update the live preview.
-      setPreviewSource(newSource);
-      setImgError(false);
+      // Flush the state update synchronously so that the re-render triggered
+      // by view.dispatch (below) sees the already-updated previewSource.
+      // Without this, the controlled <textarea value={previewSource}> would
+      // temporarily show the stale value when ComponentView.update fires
+      // in the same synchronous call stack as view.dispatch.
+      React.flushSync(() => {
+        setPreviewSource(newSource);
+        setImgError(false);
+      });
 
       // Persist the change back into the ProseMirror document.
       const pos = getPos();
@@ -90,7 +96,7 @@ const PlantUmlView: React.FC<Props> = ({
           <PaneLabel>PlantUML</PaneLabel>
           <Textarea
             ref={textareaRef}
-            defaultValue={node.textContent}
+            value={previewSource}
             onChange={handleChange}
             spellCheck={false}
             placeholder="Enter PlantUML diagram source…"

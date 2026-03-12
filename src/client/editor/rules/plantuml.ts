@@ -48,7 +48,7 @@ export default function plantumlRule(md): void {
       const token = state.push("plantuml", "div", 0);
       token.content = contentLines.join("\n");
       token.block = true;
-      token.map = [startLine, nextLine];
+      token.map = [startLine, nextLine + 1];
 
       return true;
     },
