@@ -13,6 +13,7 @@ import CodeFence from "./nodes/CodeFence";
 import CheckboxList from "./nodes/CheckboxList";
 import CheckboxItem from "./nodes/CheckboxItem";
 import Embed from "./nodes/Embed";
+import Mermaid from "./nodes/Mermaid";
 import HardBreak from "./nodes/HardBreak";
 import Heading from "./nodes/Heading";
 import HorizontalRule from "./nodes/HorizontalRule";
@@ -47,6 +48,7 @@ const extensions = new ExtensionManager([
   new BulletList(),
   new CodeBlock(),
   new CodeFence(),
+  new Mermaid(),
   new CheckboxList(),
   new CheckboxItem(),
   new Embed(),

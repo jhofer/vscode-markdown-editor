@@ -9,6 +9,7 @@ export const base = {
   bulletList: "Bulleted list",
   checkboxList: "Todo list",
   codeBlock: "Code block",
+  mermaidDiagram: "Mermaid diagram",
   codeCopied: "Copied to clipboard",
   codeInline: "Code",
   createLink: "Create link",

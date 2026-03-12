@@ -43,6 +43,7 @@ import CheckboxList from "./nodes/CheckboxList";
 import Emoji from "./nodes/Emoji";
 import CheckboxItem from "./nodes/CheckboxItem";
 import Embed from "./nodes/Embed";
+import Mermaid from "./nodes/Mermaid";
 import HardBreak from "./nodes/HardBreak";
 import Heading from "./nodes/Heading";
 import HorizontalRule from "./nodes/HorizontalRule";
@@ -509,6 +510,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             dictionary,
             onShowToast: this.props.onShowToast,
           }),
+          new Mermaid(),
           new Emoji(),
           new Text(),
           new CheckboxList(),
