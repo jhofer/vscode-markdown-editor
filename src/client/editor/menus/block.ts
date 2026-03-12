@@ -96,6 +96,13 @@ export default function blockMenuItems(
       keywords: "script",
     },
     {
+      name: "mermaid_diagram",
+      title: dictionary.mermaidDiagram,
+      icon: CodeIcon,
+      keywords: "diagram mermaid flowchart graph",
+      attrs: { content: "graph TD\n    A --> B" },
+    },
+    {
       name: "hr",
       title: dictionary.hr,
       icon: HorizontalRuleIcon,
