@@ -59,6 +59,7 @@ export const base = {
   tipNotice: "Tip notice",
   warning: "Warning",
   warningNotice: "Warning notice",
+  plantUml: "PlantUML diagram",
 };
 
 export default base;
