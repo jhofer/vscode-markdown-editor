@@ -1,21 +1,24 @@
 import * as React from "react";
 import { textblockTypeInputRule } from "prosemirror-inputrules";
+import { NodeSelection } from "prosemirror-state";
 import styled from "styled-components";
-import encode from "plantuml-encoder";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
-
-const PLANTUML_SERVER = "https://www.plantuml.com/plantuml/svg/";
 
 const DEFAULT_DIAGRAM = `Alice -> Bob: Authentication Request
 Bob --> Alice: Authentication Response`;
 
-function encodeDiagram(source: string): string {
-  try {
-    return PLANTUML_SERVER + encode(source || DEFAULT_DIAGRAM);
-  } catch {
-    return "";
-  }
+let plantUmlRenderQueue: Promise<void> = Promise.resolve();
+
+function queuePlantUmlRender<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    plantUmlRenderQueue = plantUmlRenderQueue
+      .then(async () => {
+        const result = await task();
+        resolve(result);
+      })
+      .catch(reject);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -28,7 +31,7 @@ type Props = {
   isEditable: boolean;
   getPos: () => number;
   view: any; // EditorView
-  theme: any;
+  renderPlantUml?: (source: string) => Promise<{ imageData: string }>;
 };
 
 const PlantUmlView: React.FC<Props> = ({
@@ -37,65 +40,128 @@ const PlantUmlView: React.FC<Props> = ({
   isEditable,
   getPos,
   view,
-  theme,
+  renderPlantUml,
 }) => {
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const renderIdRef = React.useRef(0);
+  const renderTimeoutRef = React.useRef<number | undefined>(undefined);
   const [previewSource, setPreviewSource] = React.useState<string>(
     node.textContent
   );
-  const [imgError, setImgError] = React.useState(false);
+  const [imageData, setImageData] = React.useState<string>("");
+  const [isRendering, setIsRendering] = React.useState(false);
+  const [renderError, setRenderError] = React.useState<string | undefined>(
+    undefined
+  );
 
-  // Sync preview source when the node changes externally (e.g. undo/redo).
   React.useEffect(() => {
     setPreviewSource(node.textContent);
-    setImgError(false);
   }, [node.textContent]);
 
-  // When entering edit mode, focus the textarea.
-  React.useEffect(() => {
-    if (isSelected && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [isSelected]);
+  const requestRender = React.useCallback(
+    async (source: string) => {
+      if (!renderPlantUml) {
+        setRenderError("PlantUML renderer is not available");
+        setImageData("");
+        return;
+      }
 
-  const diagramUrl = React.useMemo(() => encodeDiagram(previewSource), [
-    previewSource,
-  ]);
+      const currentRenderId = ++renderIdRef.current;
+      setIsRendering(true);
+
+      try {
+        const result = await queuePlantUmlRender(() => renderPlantUml(source));
+
+        if (currentRenderId !== renderIdRef.current) {
+          return;
+        }
+
+        setImageData(result.imageData);
+        setRenderError(undefined);
+      } catch (error) {
+        if (currentRenderId !== renderIdRef.current) {
+          return;
+        }
+
+        setImageData("");
+        setRenderError(String(error));
+      } finally {
+        if (currentRenderId === renderIdRef.current) {
+          setIsRendering(false);
+        }
+      }
+    },
+    [renderPlantUml]
+  );
+
+  React.useEffect(() => {
+    const source = previewSource.trim();
+    if (!source) {
+      setImageData("");
+      setRenderError(undefined);
+      setIsRendering(false);
+      return;
+    }
+
+    if (renderTimeoutRef.current !== undefined) {
+      window.clearTimeout(renderTimeoutRef.current);
+    }
+
+    renderTimeoutRef.current = window.setTimeout(() => {
+      void requestRender(source);
+    }, 250);
+
+    return () => {
+      if (renderTimeoutRef.current !== undefined) {
+        window.clearTimeout(renderTimeoutRef.current);
+      }
+    };
+  }, [previewSource, requestRender]);
 
   const handleChange = React.useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newSource = e.target.value;
+      setPreviewSource(newSource);
 
-      // Flush the state update synchronously so that the re-render triggered
-      // by view.dispatch (below) sees the already-updated previewSource.
-      // Without this, the controlled <textarea value={previewSource}> would
-      // temporarily show the stale value when ComponentView.update fires
-      // in the same synchronous call stack as view.dispatch.
-      React.flushSync(() => {
-        setPreviewSource(newSource);
-        setImgError(false);
-      });
-
-      // Persist the change back into the ProseMirror document.
       const pos = getPos();
       const { tr, doc, schema } = view.state;
       const nodeAtPos = doc.nodeAt(pos);
       if (nodeAtPos) {
         const content = newSource ? schema.text(newSource) : null;
         const newNode = nodeAtPos.type.create(nodeAtPos.attrs, content);
-        view.dispatch(tr.replaceWith(pos, pos + nodeAtPos.nodeSize, newNode));
+        const transaction = tr.replaceWith(
+          pos,
+          pos + nodeAtPos.nodeSize,
+          newNode
+        );
+
+        // Keep the diagram node selected while editing so multiline input
+        // (for example pressing Enter) does not collapse back to view mode.
+        transaction.setSelection(NodeSelection.create(transaction.doc, pos));
+        view.dispatch(transaction);
       }
+    },
+    [getPos, view]
+  );
+
+  const handleSelect = React.useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+
+      const pos = getPos();
+      const $pos = view.state.doc.resolve(pos);
+      const transaction = view.state.tr.setSelection(new NodeSelection($pos));
+      view.dispatch(transaction);
     },
     [getPos, view]
   );
 
   if (isSelected && isEditable) {
     return (
-      <EditorContainer>
+      <EditorContainer onMouseDown={handleSelect}>
         <SourcePane>
           <PaneLabel>PlantUML</PaneLabel>
           <Textarea
-            ref={textareaRef}
+            autoFocus={isSelected}
             value={previewSource}
             onChange={handleChange}
             spellCheck={false}
@@ -104,38 +170,30 @@ const PlantUmlView: React.FC<Props> = ({
         </SourcePane>
         <PreviewPane>
           <PaneLabel>Preview</PaneLabel>
-          {imgError ? (
+          {renderError ? (
             <ErrorMessage>
-              Preview requires network access to{" "}
-              <code>www.plantuml.com</code>
+              <strong>Render failed.</strong>
+              <br />
+              {renderError}
             </ErrorMessage>
+          ) : isRendering ? (
+            <LoadingMessage>Rendering diagram...</LoadingMessage>
+          ) : imageData ? (
+            <PreviewImage src={imageData} alt="PlantUML Preview" />
           ) : (
-            <PreviewImage
-              src={diagramUrl}
-              alt="PlantUML Preview"
-              onError={() => setImgError(true)}
-              onLoad={() => setImgError(false)}
-            />
+            <LoadingMessage>Enter PlantUML source to preview.</LoadingMessage>
           )}
         </PreviewPane>
       </EditorContainer>
     );
   }
 
-  // -------------------------------------------------------------------------
-  // View mode – render the diagram as a static image.
-  // -------------------------------------------------------------------------
   return (
-    <DiagramContainer>
-      {imgError ? (
+    <DiagramContainer onMouseDown={handleSelect}>
+      {renderError || !imageData ? (
         <FallbackPre>{previewSource}</FallbackPre>
       ) : (
-        <DiagramImage
-          src={diagramUrl}
-          alt="PlantUML diagram"
-          onError={() => setImgError(true)}
-          onLoad={() => setImgError(false)}
-        />
+        <DiagramImage src={imageData} alt="PlantUML diagram" />
       )}
     </DiagramContainer>
   );
@@ -181,8 +239,7 @@ export default class PlantUml extends Node {
     };
   }
 
-  // Delegate rendering to the React component (picked up by ComponentView).
-  component = ({ node, isSelected, isEditable, getPos, theme }) => {
+  component = ({ node, isSelected, isEditable, getPos }: any) => {
     return (
       <PlantUmlView
         node={node}
@@ -190,12 +247,12 @@ export default class PlantUml extends Node {
         isEditable={isEditable}
         getPos={getPos}
         view={this.editor.view}
-        theme={theme}
+        renderPlantUml={this.options.onRenderPlantUml}
       />
     );
   };
 
-  toMarkdown(state, node) {
+  toMarkdown(state: any, node: any) {
     state.write("@startuml\n");
     state.text(node.textContent, false);
     state.ensureNewLine();
@@ -214,12 +271,12 @@ export default class PlantUml extends Node {
     };
   }
 
-  inputRules({ type }) {
+  inputRules({ type }: any) {
     return [textblockTypeInputRule(/^@startuml$/, type)];
   }
 
-  commands({ type }) {
-    return () => (state, dispatch) => {
+  commands({ type }: any) {
+    return () => (state: any, dispatch: any) => {
       const { selection } = state;
       const position = selection.$cursor
         ? selection.$cursor.pos
@@ -234,10 +291,6 @@ export default class PlantUml extends Node {
     };
   }
 }
-
-// ---------------------------------------------------------------------------
-// Styled components
-// ---------------------------------------------------------------------------
 
 const EditorContainer = styled.div`
   display: flex;
@@ -278,7 +331,7 @@ const PaneLabel = styled.div`
   background: ${props => props.theme.codeBackground || props.theme.background};
 `;
 
-const Textarea = styled.textarea`
+const Textarea = styled.textarea<any>`
   flex: 1;
   resize: none;
   border: none;
@@ -296,7 +349,7 @@ const Textarea = styled.textarea`
   }
 `;
 
-const PreviewImage = styled.img`
+const PreviewImage = styled.img<any>`
   max-width: 100%;
   height: auto;
   display: block;
@@ -309,13 +362,20 @@ const ErrorMessage = styled.p`
   padding: 16px;
 `;
 
+const LoadingMessage = styled.p`
+  color: ${props => props.theme.textSecondary};
+  font-size: 13px;
+  text-align: center;
+  padding: 16px;
+`;
+
 const DiagramContainer = styled.div`
   margin: 8px 0;
   cursor: default;
   user-select: none;
 `;
 
-const DiagramImage = styled.img`
+const DiagramImage = styled.img<any>`
   max-width: 100%;
   height: auto;
   display: block;

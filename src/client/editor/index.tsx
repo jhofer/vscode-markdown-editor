@@ -149,6 +149,7 @@ export type Props = {
   onCreateLink?: (title: string) => Promise<string>;
   onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onRequestCompletion?: (context: { prefix: string; suffix: string; mdContent: string; cursorPos: number; fileName: string }) => Promise<string[]>;
+  onRenderPlantUml?: (source: string) => Promise<{ imageData: string }>;
   onClickLink: (href: string, event: MouseEvent) => void;
   onHoverLink?: (event: MouseEvent) => boolean;
   onClickHashtag?: (tag: string, event: MouseEvent) => void;
@@ -510,7 +511,9 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             dictionary,
             onShowToast: this.props.onShowToast,
           }),
-          new PlantUml(),
+          new PlantUml({
+            onRenderPlantUml: this.props.onRenderPlantUml,
+          }),
           new Emoji(),
           new Text(),
           new CheckboxList(),

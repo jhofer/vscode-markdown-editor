@@ -6,3 +6,4 @@ export * from "./openLink";
 export * from "./ready";
 export * from "./init";
 export * from "./requestCompletion";
+export * from "./renderPlantUml";
