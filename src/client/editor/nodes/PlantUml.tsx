@@ -2,6 +2,8 @@ import * as React from "react";
 import { textblockTypeInputRule } from "prosemirror-inputrules";
 import { NodeSelection } from "prosemirror-state";
 import styled from "styled-components";
+import { basicSetup, EditorView as CMView } from "codemirror";
+import { EditorState as CMState } from "@codemirror/state";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
 
@@ -201,6 +203,136 @@ function hasThemedStyleOptIn(source: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Lightweight CodeMirror-based code editor component
+// ---------------------------------------------------------------------------
+
+const cmTheme = CMView.theme(
+  {
+    "&": {
+      fontSize: "13px",
+      flex: "1",
+      overflow: "hidden",
+      display: "flex",
+      flexDirection: "column",
+    },
+    ".cm-scroller": {
+      fontFamily:
+        "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
+      overflow: "auto",
+      lineHeight: "1.5",
+      flex: "1",
+    },
+    ".cm-content": {
+      padding: "8px 10px",
+      minHeight: "160px",
+      caretColor: "var(--vscode-editor-foreground, #d4d4d4)",
+    },
+    ".cm-editor": {
+      background:
+        "var(--vscode-input-background, var(--vscode-editor-background, #1e1e1e))",
+      color: "var(--vscode-editor-foreground, #d4d4d4)",
+    },
+    "&.cm-focused": { outline: "none" },
+    ".cm-gutters": {
+      background:
+        "var(--vscode-editorGutter-background, var(--vscode-editor-background, #1e1e1e))",
+      color: "var(--vscode-editorLineNumber-foreground, #858585)",
+      borderRight:
+        "1px solid var(--vscode-editorIndentGuide-background, rgba(255,255,255,0.1))",
+    },
+    ".cm-activeLineGutter": {
+      background:
+        "var(--vscode-editor-lineHighlightBackground, rgba(255,255,255,0.04))",
+    },
+    ".cm-activeLine": {
+      background:
+        "var(--vscode-editor-lineHighlightBackground, rgba(255,255,255,0.04))",
+    },
+    ".cm-selectionBackground, ::selection": {
+      background: "var(--vscode-editor-selectionBackground, #264f78) !important",
+    },
+    ".cm-cursor": {
+      borderLeftColor: "var(--vscode-editor-foreground, #d4d4d4)",
+    },
+  },
+  { dark: true }
+);
+
+type CodeMirrorEditorProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
+
+const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
+  value,
+  onChange,
+}) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const viewRef = React.useRef<CMView | null>(null);
+  const onChangeRef = React.useRef(onChange);
+  const syncingRef = React.useRef(false);
+
+  // Keep the callback ref current without recreating the editor.
+  React.useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+
+  // Create the CodeMirror instance once on mount.
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+
+    const view = new CMView({
+      state: CMState.create({
+        doc: value,
+        extensions: [
+          basicSetup,
+          cmTheme,
+          CMView.updateListener.of((update) => {
+            if (update.docChanged && !syncingRef.current) {
+              onChangeRef.current(update.state.doc.toString());
+            }
+          }),
+        ],
+      }),
+      parent: containerRef.current,
+    });
+
+    viewRef.current = view;
+    view.focus();
+
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
+  }, []);
+
+  // Sync external value changes (e.g., undo/redo) into CodeMirror.
+  React.useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const currentDoc = view.state.doc.toString();
+    if (currentDoc !== value) {
+      syncingRef.current = true;
+      view.dispatch({
+        changes: { from: 0, to: currentDoc.length, insert: value },
+      });
+      syncingRef.current = false;
+    }
+  }, [value]);
+
+  return (
+    // stopPropagation prevents the outer ProseMirror handleSelect from
+    // eating mouse events needed for cursor placement inside the editor.
+    <div
+      style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}
+      onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
+    >
+      <div ref={containerRef} style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }} />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // React component rendered for each plantuml node
 // ---------------------------------------------------------------------------
 
@@ -335,9 +467,8 @@ const PlantUmlView: React.FC<Props> = ({
     };
   }, [previewSource, requestRender]);
 
-  const handleChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newSource = e.target.value;
+  const handleCodeMirrorChange = React.useCallback(
+    (newSource: string) => {
       setPreviewSource(newSource);
 
       const pos = getPos();
@@ -379,12 +510,9 @@ const PlantUmlView: React.FC<Props> = ({
         <EditorContainer>
           <SourcePane>
             <PaneLabel>PlantUML</PaneLabel>
-            <Textarea
-              autoFocus={isSelected}
+            <CodeMirrorEditor
               value={previewSource}
-              onChange={handleChange}
-              spellCheck={false}
-              placeholder="Enter PlantUML diagram source…"
+              onChange={handleCodeMirrorChange}
             />
           </SourcePane>
           <PreviewPane>
@@ -568,23 +696,6 @@ const PaneLabel = styled.div`
   background: ${props => props.theme.codeBackground || props.theme.background};
 `;
 
-const Textarea = styled.textarea<any>`
-  flex: 1;
-  resize: none;
-  border: none;
-  outline: none;
-  padding: 10px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  color: ${props => props.theme.code};
-  background: ${props => props.theme.codeBackground || props.theme.background};
-  min-height: 160px;
-
-  &::placeholder {
-    color: ${props => props.theme.placeholder};
-  }
-`;
 
 type DiagramImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   $whiteBackground?: boolean;
