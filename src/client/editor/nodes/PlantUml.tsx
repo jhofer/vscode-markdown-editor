@@ -143,6 +143,21 @@ function getPlantUmlSkinparamBlock(): string {
     `skinparam NoteFontColor ${foreground}`,
     `skinparam ClassBackgroundColor ${surface}`,
     `skinparam ClassBorderColor ${border}`,
+    `skinparam ClassFontColor ${foreground}`,
+    `skinparam ClassAttributeFontColor ${foreground}`,
+    `skinparam ClassStereotypeFontColor ${foreground}`,
+    `skinparam EnumBackgroundColor ${surface}`,
+    `skinparam EnumBorderColor ${border}`,
+    `skinparam EnumFontColor ${foreground}`,
+    `skinparam InterfaceBackgroundColor ${surface}`,
+    `skinparam InterfaceBorderColor ${border}`,
+    `skinparam InterfaceFontColor ${foreground}`,
+    `skinparam AbstractClassBackgroundColor ${surface}`,
+    `skinparam AbstractClassBorderColor ${border}`,
+    `skinparam AbstractClassFontColor ${foreground}`,
+    `skinparam ObjectBackgroundColor ${surface}`,
+    `skinparam ObjectBorderColor ${border}`,
+    `skinparam ObjectFontColor ${foreground}`,
     `skinparam PackageBackgroundColor ${surface}`,
     `skinparam PackageBorderColor ${border}`,
     `skinparam ComponentBackgroundColor ${surface}`,
@@ -170,6 +185,19 @@ function withThemedSkinparams(source: string): string {
     /^@startuml\s*/i,
     `@startuml\n${getPlantUmlSkinparamBlock()}\n`
   );
+}
+
+function hasThemedStyleOptIn(source: string): boolean {
+  const trimmed = source.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const firstNonEmptyLine = trimmed
+    .split(/\r?\n/)
+    .find((line) => line.trim().length > 0);
+
+  return /^'\s*themedstyle\b/i.test(firstNonEmptyLine || "");
 }
 
 // ---------------------------------------------------------------------------
@@ -206,6 +234,7 @@ const PlantUmlView: React.FC<Props> = ({
   const [imageLoadError, setImageLoadError] = React.useState<string | undefined>(
     undefined
   );
+  const [isThemedStyle, setIsThemedStyle] = React.useState(false);
 
   React.useEffect(() => {
     setPreviewSource(node.textContent);
@@ -219,7 +248,10 @@ const PlantUmlView: React.FC<Props> = ({
         return;
       }
 
-      const themedSource = withThemedSkinparams(source);
+      const applyThemedStyle = hasThemedStyleOptIn(source);
+      const themedSource = applyThemedStyle
+        ? withThemedSkinparams(source)
+        : source;
 
       const currentRenderId = ++renderIdRef.current;
       setIsRendering(true);
@@ -259,6 +291,7 @@ const PlantUmlView: React.FC<Props> = ({
         }
 
         setImageLoadError(undefined);
+        setIsThemedStyle(applyThemedStyle);
         setImageData(payload);
         setRenderError(undefined);
       } catch (error) {
@@ -366,6 +399,7 @@ const PlantUmlView: React.FC<Props> = ({
               <LoadingMessage>Rendering diagram...</LoadingMessage>
             ) : imageData ? (
               <PreviewImage
+                $whiteBackground={!isThemedStyle}
                 src={imageData}
                 alt="PlantUML Preview"
                 onError={() =>
@@ -389,6 +423,7 @@ const PlantUmlView: React.FC<Props> = ({
           <FallbackPre>{previewSource}</FallbackPre>
         ) : (
           <DiagramImage
+            $whiteBackground={!isThemedStyle}
             src={imageData}
             alt="PlantUML diagram"
             onError={() =>
@@ -551,10 +586,17 @@ const Textarea = styled.textarea<any>`
   }
 `;
 
-const PreviewImage = styled.img<any>`
+type DiagramImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
+  $whiteBackground?: boolean;
+};
+
+const PreviewImage = styled.img<DiagramImageProps>`
   max-width: 100%;
   height: auto;
   display: block;
+  background: ${props => (props.$whiteBackground ? "#ffffff" : "transparent")};
+  padding: ${props => (props.$whiteBackground ? "8px" : "0")};
+  border-radius: ${props => (props.$whiteBackground ? "4px" : "0")};
 `;
 
 const ErrorMessage = styled.p`
@@ -577,10 +619,13 @@ const DiagramContainer = styled.div`
   user-select: none;
 `;
 
-const DiagramImage = styled.img<any>`
+const DiagramImage = styled.img<DiagramImageProps>`
   max-width: 100%;
   height: auto;
   display: block;
+  background: ${props => (props.$whiteBackground ? "#ffffff" : "transparent")};
+  padding: ${props => (props.$whiteBackground ? "8px" : "0")};
+  border-radius: ${props => (props.$whiteBackground ? "4px" : "0")};
 `;
 
 const FallbackPre = styled.pre`
