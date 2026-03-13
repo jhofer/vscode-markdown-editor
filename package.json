@@ -94,6 +94,7 @@
     "@types/prosemirror-model": "^1.7.2",
     "@types/prosemirror-schema-list": "^1.0.1",
     "@types/prosemirror-state": "^1.2.4",
+    "@types/prosemirror-transform": "^1.4.2",
     "@types/prosemirror-view": "^1.11.4",
     "@types/react": "^17.0.40",
     "@types/react-dom": "^17.0.13",

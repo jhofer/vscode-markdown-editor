@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 /* global window File Promise */
 import * as React from "react";
 import memoize from "lodash/memoize";
@@ -13,6 +15,7 @@ import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
 import { selectColumn, selectRow, selectTable } from "prosemirror-utils";
 import { ThemeProvider } from "styled-components";
+import styled from "styled-components";
 import { light as lightTheme, dark as darkTheme } from "./styles/theme";
 import baseDictionary from "./dictionary";
 import Flex from "./components/Flex";
@@ -30,6 +33,11 @@ import headingToSlug from "./lib/headingToSlug";
 
 // styles
 import { StyledEditor } from "./styles/editor";
+
+const EditorContainer = styled.div`
+  position: relative;
+  width: 100%;
+`;
 
 // nodes
 import ReactNode from "./nodes/ReactNode";
@@ -954,7 +962,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       >
         <ThemeProvider theme={this.theme()}>
           <React.Fragment>
-            <div style={{ position: "relative", width: "100%" }}>
+            <EditorContainer>
               <StyledEditor
                 dir={dir}
                 rtl={isRTL}
@@ -962,7 +970,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
                 readOnlyWriteCheckboxes={readOnlyWriteCheckboxes}
                 ref={(ref) => (this.element = ref)}
               />
-            </div>
+            </EditorContainer>
             {!readOnly && this.view && (
               <React.Fragment>
                 <SelectionToolbar

@@ -249,7 +249,7 @@ export function EditorHost(props: IEditorHostProps) {
           {editMode === EditMode.RichText ? "< >" : "👁"}
         </button>
       </div>
-      <div style={{ padding: 40, maxWidth: 825, margin: "0 auto" }}>
+      <div className="editor-content">
         {editor}
       </div>
     </div>

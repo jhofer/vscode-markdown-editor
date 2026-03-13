@@ -21,6 +21,157 @@ function queuePlantUmlRender<T>(task: () => Promise<T>): Promise<T> {
   });
 }
 
+function getCssVar(name: string, fallback: string): string {
+  if (typeof window === "undefined" || !window.getComputedStyle) {
+    return fallback;
+  }
+
+  const rootValue = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  if (rootValue) {
+    return rootValue;
+  }
+
+  const bodyValue = document.body
+    ? getComputedStyle(document.body).getPropertyValue(name).trim()
+    : "";
+  return bodyValue || fallback;
+}
+
+function isLowAlphaRgba(value: string): boolean {
+  const match = value.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\s*\)/i);
+  if (!match) {
+    return false;
+  }
+
+  const alpha = Number(match[1]);
+  return Number.isFinite(alpha) && alpha < 0.45;
+}
+
+function toHexColor(value: string): string {
+  const match = value.match(
+    /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*[0-9.]+\s*)?\)$/i
+  );
+
+  if (!match) {
+    return value;
+  }
+
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  const toByteHex = (n: number) => clamp(n).toString(16).padStart(2, "0");
+
+  const r = Number(match[1]);
+  const g = Number(match[2]);
+  const b = Number(match[3]);
+
+  return `#${toByteHex(r)}${toByteHex(g)}${toByteHex(b)}`;
+}
+
+function getCssVarFirst(names: string[], fallback: string): string {
+  for (const name of names) {
+    const value = getCssVar(name, "");
+    if (!value || isLowAlphaRgba(value)) {
+      continue;
+    }
+    return toHexColor(value);
+  }
+
+  return toHexColor(fallback);
+}
+
+function getPlantUmlSkinparamBlock(): string {
+  const background = toHexColor(
+    getCssVar("--vscode-editor-background", "#1e1e1e")
+  );
+  const surface = getCssVarFirst(
+    [
+      "--vscode-input-background",
+      "--vscode-editorWidget-background",
+      "--vscode-textCodeBlock-background",
+    ],
+    "#252526"
+  );
+  const foreground = getCssVarFirst(
+    ["--vscode-input-foreground", "--vscode-editor-foreground"],
+    "#d4d4d4"
+  );
+  const muted = getCssVarFirst(
+    ["--vscode-descriptionForeground", "--vscode-editorLineNumber-foreground"],
+    foreground
+  );
+  const accent = getCssVarFirst(
+    ["--vscode-input-border", "--vscode-textLink-foreground", "--vscode-focusBorder"],
+    foreground
+  );
+  const border = getCssVarFirst(
+    [
+      "--vscode-input-border",
+      "--vscode-contrastBorder",
+      "--vscode-editorWidget-border",
+      "--vscode-focusBorder",
+    ],
+    foreground
+  );
+
+  return [
+    "skinparam Shadowing false",
+    "skinparam RoundCorner 6",
+    "skinparam Padding 8",
+    `skinparam backgroundColor ${background}`,
+    `skinparam defaultFontColor ${foreground}`,
+    `skinparam HyperlinkColor ${accent}`,
+    `skinparam ArrowColor ${accent}`,
+    `skinparam ArrowFontColor ${foreground}`,
+    `skinparam BorderColor ${border}`,
+    `skinparam SequenceLifeLineBorderColor ${muted}`,
+    `skinparam SequenceLifeLineBackgroundColor ${background}`,
+    `skinparam ParticipantBackgroundColor ${surface}`,
+    `skinparam ParticipantBorderColor ${border}`,
+    `skinparam ParticipantFontColor ${foreground}`,
+    `skinparam ActorBackgroundColor ${surface}`,
+    `skinparam ActorBorderColor ${border}`,
+    `skinparam ActorFontColor ${foreground}`,
+    `skinparam SequenceBoxBackgroundColor ${surface}`,
+    `skinparam SequenceBoxBorderColor ${border}`,
+    `skinparam SequenceGroupBackgroundColor ${surface}`,
+    `skinparam SequenceGroupBorderColor ${border}`,
+    `skinparam SequenceDividerBackgroundColor ${surface}`,
+    `skinparam SequenceDividerBorderColor ${border}`,
+    `skinparam NoteBorderColor ${border}`,
+    `skinparam NoteBackgroundColor ${surface}`,
+    `skinparam NoteFontColor ${foreground}`,
+    `skinparam ClassBackgroundColor ${surface}`,
+    `skinparam ClassBorderColor ${border}`,
+    `skinparam PackageBackgroundColor ${surface}`,
+    `skinparam PackageBorderColor ${border}`,
+    `skinparam ComponentBackgroundColor ${surface}`,
+    `skinparam ComponentBorderColor ${border}`,
+    `skinparam DatabaseBackgroundColor ${surface}`,
+    `skinparam DatabaseBorderColor ${border}`,
+    `skinparam RectangleBackgroundColor ${surface}`,
+    `skinparam RectangleBorderColor ${border}`,
+    `skinparam CloudBackgroundColor ${surface}`,
+    `skinparam CloudBorderColor ${border}`,
+  ].join("\n");
+}
+
+function withThemedSkinparams(source: string): string {
+  const trimmed = source.trim();
+  if (!trimmed) {
+    return source;
+  }
+
+  const withUmlBlock = /^@startuml\b/i.test(trimmed)
+    ? trimmed
+    : `@startuml\n${trimmed}\n@enduml`;
+
+  return withUmlBlock.replace(
+    /^@startuml\s*/i,
+    `@startuml\n${getPlantUmlSkinparamBlock()}\n`
+  );
+}
+
 // ---------------------------------------------------------------------------
 // React component rendered for each plantuml node
 // ---------------------------------------------------------------------------
@@ -52,6 +203,9 @@ const PlantUmlView: React.FC<Props> = ({
   const [renderError, setRenderError] = React.useState<string | undefined>(
     undefined
   );
+  const [imageLoadError, setImageLoadError] = React.useState<string | undefined>(
+    undefined
+  );
 
   React.useEffect(() => {
     setPreviewSource(node.textContent);
@@ -65,23 +219,53 @@ const PlantUmlView: React.FC<Props> = ({
         return;
       }
 
+      const themedSource = withThemedSkinparams(source);
+
       const currentRenderId = ++renderIdRef.current;
       setIsRendering(true);
 
       try {
-        const result = await queuePlantUmlRender(() => renderPlantUml(source));
+        let result: { imageData: string } | undefined;
+
+        try {
+          result = await queuePlantUmlRender(() => renderPlantUml(themedSource));
+        } catch {
+          if (themedSource !== source) {
+            result = await queuePlantUmlRender(() => renderPlantUml(source));
+          } else {
+            throw new Error("PlantUML themed render failed");
+          }
+        }
+
+        if (!result?.imageData && themedSource !== source) {
+          result = await queuePlantUmlRender(() => renderPlantUml(source));
+        }
 
         if (currentRenderId !== renderIdRef.current) {
           return;
         }
 
-        setImageData(result.imageData);
+        const payload = result?.imageData || "";
+        if (!payload) {
+          setImageData("");
+          setRenderError("PlantUML returned no image data");
+          return;
+        }
+
+        if (!payload.startsWith("data:image/")) {
+          setImageData("");
+          setRenderError("PlantUML returned an unexpected image payload");
+          return;
+        }
+
+        setImageLoadError(undefined);
+        setImageData(payload);
         setRenderError(undefined);
       } catch (error) {
         if (currentRenderId !== renderIdRef.current) {
           return;
         }
-
+        console.error("Failed to render PlantUML diagram:", error);
         setImageData("");
         setRenderError(String(error));
       } finally {
@@ -98,6 +282,7 @@ const PlantUmlView: React.FC<Props> = ({
     if (!source) {
       setImageData("");
       setRenderError(undefined);
+      setImageLoadError(undefined);
       setIsRendering(false);
       return;
     }
@@ -157,45 +342,62 @@ const PlantUmlView: React.FC<Props> = ({
 
   if (isSelected && isEditable) {
     return (
-      <EditorContainer onMouseDown={handleSelect}>
-        <SourcePane>
-          <PaneLabel>PlantUML</PaneLabel>
-          <Textarea
-            autoFocus={isSelected}
-            value={previewSource}
-            onChange={handleChange}
-            spellCheck={false}
-            placeholder="Enter PlantUML diagram source…"
-          />
-        </SourcePane>
-        <PreviewPane>
-          <PaneLabel>Preview</PaneLabel>
-          {renderError ? (
-            <ErrorMessage>
-              <strong>Render failed.</strong>
-              <br />
-              {renderError}
-            </ErrorMessage>
-          ) : isRendering ? (
-            <LoadingMessage>Rendering diagram...</LoadingMessage>
-          ) : imageData ? (
-            <PreviewImage src={imageData} alt="PlantUML Preview" />
-          ) : (
-            <LoadingMessage>Enter PlantUML source to preview.</LoadingMessage>
-          )}
-        </PreviewPane>
-      </EditorContainer>
+      <div onMouseDown={handleSelect}>
+        <EditorContainer>
+          <SourcePane>
+            <PaneLabel>PlantUML</PaneLabel>
+            <Textarea
+              autoFocus={isSelected}
+              value={previewSource}
+              onChange={handleChange}
+              spellCheck={false}
+              placeholder="Enter PlantUML diagram source…"
+            />
+          </SourcePane>
+          <PreviewPane>
+            <PaneLabel>Preview</PaneLabel>
+            {renderError ? (
+              <ErrorMessage>
+                <strong>Render failed.</strong>
+                <br />
+                {renderError}
+              </ErrorMessage>
+            ) : isRendering ? (
+              <LoadingMessage>Rendering diagram...</LoadingMessage>
+            ) : imageData ? (
+              <PreviewImage
+                src={imageData}
+                alt="PlantUML Preview"
+                onError={() =>
+                  setImageLoadError("Rendered image could not be displayed")
+                }
+              />
+            ) : (
+              <LoadingMessage>Enter PlantUML source to preview.</LoadingMessage>
+            )}
+            {imageLoadError ? <ErrorMessage>{imageLoadError}</ErrorMessage> : null}
+          </PreviewPane>
+        </EditorContainer>
+      </div>
     );
   }
 
   return (
-    <DiagramContainer onMouseDown={handleSelect}>
-      {renderError || !imageData ? (
-        <FallbackPre>{previewSource}</FallbackPre>
-      ) : (
-        <DiagramImage src={imageData} alt="PlantUML diagram" />
-      )}
-    </DiagramContainer>
+    <div onMouseDown={handleSelect}>
+      <DiagramContainer>
+        {renderError || imageLoadError || !imageData ? (
+          <FallbackPre>{previewSource}</FallbackPre>
+        ) : (
+          <DiagramImage
+            src={imageData}
+            alt="PlantUML diagram"
+            onError={() =>
+              setImageLoadError("Rendered image could not be displayed")
+            }
+          />
+        )}
+      </DiagramContainer>
+    </div>
   );
 };
 

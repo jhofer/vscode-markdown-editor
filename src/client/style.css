@@ -15,6 +15,12 @@
   padding: 10px 0;
 }
 
+.editor-content {
+  padding: 40px;
+  max-width: 825px;
+  margin: 0 auto;
+}
+
 .btn {
   border: none;
   font-size: var(--vscode-editor-font-size);

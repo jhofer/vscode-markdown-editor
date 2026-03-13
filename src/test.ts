@@ -1,4 +1,6 @@
-const markdown = `
+describe("image markdown extraction", () => {
+    it("extracts image URLs", () => {
+        const markdown = `
 hehe simple view
 
 - [ ] okey todo list
@@ -19,22 +21,23 @@ test
 ![localImage](1712931903272.png)
 `;
 
-const IMAGE_INPUT_REGEX = /!\[(?<alt>[^\]]*?)\]\((?<filename>[^)]+?)\)/;
+        const imageInputRegex = /!\[(?<alt>[^\]]*?)\]\((?<filename>[^)]+?)\)/;
+        const extractImageTags = new RegExp(
+            imageInputRegex.source,
+            `${imageInputRegex.flags}g`
+        );
 
-// Ensure the global flag is set
-const extractImageTags = new RegExp(IMAGE_INPUT_REGEX.source, IMAGE_INPUT_REGEX.flags+"g");
+        const imageRawUrls: string[] = [];
+        let matches: RegExpExecArray | null;
+        while ((matches = extractImageTags.exec(markdown)) !== null) {
+            if (matches.groups?.filename) {
+                imageRawUrls.push(matches.groups.filename);
+            }
+        }
 
-const imageRawUrls: string[] = [];
-
-// Loop through all matches
-let matches;
-while ((matches = extractImageTags.exec(markdown)) !== null) {
-    if (matches.groups?.filename) {
-        imageRawUrls.push(matches.groups.filename);
-    }
-}
-
-const filteredUrls = imageRawUrls.filter((url) => url !== undefined);
-console.log("imageRawUrls", filteredUrls);
+        const filteredUrls = imageRawUrls.filter((url) => url !== undefined);
+        expect(filteredUrls).toHaveLength(2);
+    });
+});
       
       
