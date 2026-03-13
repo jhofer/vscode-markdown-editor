@@ -70,15 +70,23 @@ export class RichMarkdownEditorProvider
         }
       }
 
+      const documentDir = vscode.Uri.file(path.dirname(ctx.document.uri.fsPath));
+
       urlLookUp = imageRawUrls.reduce(
         (acc: Record<string, string>, url: string) => {
           if (url.startsWith("http")) {
             acc[url] = url;
             return acc;
           } else {
-            // Remove leading slash if present for relative paths
-            const cleanUrl = url.startsWith("/") ? url.substring(1) : url;
-            const onDiskPath = vscode.Uri.joinPath(workspaceFolderPath, cleanUrl);
+            let onDiskPath: vscode.Uri;
+            if (url.startsWith("/")) {
+              // Workspace-relative path (leading '/' means relative to workspace root)
+              const cleanUrl = url.substring(1);
+              onDiskPath = vscode.Uri.joinPath(workspaceFolderPath, cleanUrl);
+            } else {
+              // Document-relative path (resolve against the containing file's directory)
+              onDiskPath = vscode.Uri.joinPath(documentDir, url);
+            }
             const src = ctx.webviewPanel.webview.asWebviewUri(onDiskPath);
 
             logger.logDebug("Image URL mapping:", { original: url, onDisk: onDiskPath.toString(), webview: src?.toString() });
@@ -253,6 +261,9 @@ export class RichMarkdownEditorProvider
         logger.logDebug("openLink", uri.scheme);
         if (uri.scheme === "vscode-webview") {
           await this.openDocument(uri, ctx.document);
+        } else if (!uri.scheme || uri.scheme === "file") {
+          // Local file link: relative (e.g. ./other.md) or workspace-relative (e.g. /docs/page.md)
+          await this.openLocalPath(href, ctx.document);
         } else {
           vscode.env.openExternal(vscode.Uri.parse(href));
         }
@@ -351,6 +362,39 @@ export class RichMarkdownEditorProvider
       throw new Error("No workspace folder found");
     }
     return workspaceFolder;
+  }
+
+  /**
+   * Open a local file link, resolving paths relative to the document or workspace root.
+   * Paths starting with '/' are treated as workspace-relative.
+   * All other paths are treated as relative to the containing document's directory.
+   */
+  private async openLocalPath(href: string, document: vscode.TextDocument) {
+    const workspaceFolder = this.getWorkspaceFolder(document);
+    const workspaceFolderPath = workspaceFolder.uri.fsPath;
+    let absolutePath: string;
+
+    if (href.startsWith("/")) {
+      // Workspace-relative path (e.g. /docs/page.md)
+      absolutePath = path.join(workspaceFolderPath, href);
+    } else {
+      // Document-relative path (e.g. ./other.md or ../sibling/doc.md)
+      const documentDir = path.dirname(document.uri.fsPath);
+      absolutePath = path.resolve(documentDir, href);
+    }
+
+    logger.logDebug(`Opening local path: ${absolutePath}`);
+    return vscode.workspace.openTextDocument(absolutePath).then(
+      (doc) => {
+        return vscode.commands
+          .executeCommand("vscode.open", doc.uri)
+          .then(logger.logDebug, logger.logError);
+      },
+      () => {
+        logger.logError(`File not found: ${absolutePath}`);
+        vscode.window.showErrorMessage(`File not found: ${absolutePath}`);
+      },
+    );
   }
 
   private async openDocument(uri: vscode.Uri, document: vscode.TextDocument) {
