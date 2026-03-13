@@ -14,7 +14,9 @@ import { openLinkMessage } from "../common/messages/openLink";
 import { readyMessage } from "../common/messages/ready";
 import { initMessage } from "../common/messages/init";
 import { requestCompletionMessage } from "../common/messages/requestCompletion";
+import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
 import { CopilotProvider } from "./copilotProvider";
+import { PlantUmlRenderer } from "./plantUmlRenderer";
 
 // Per-document editor context
 interface EditorContext {
@@ -29,6 +31,7 @@ export class RichMarkdownEditorProvider
   // Map of document URI to editor context
   private editors: Map<string, EditorContext> = new Map();
   private copilotProvider = new CopilotProvider();
+  private plantUmlRenderer = new PlantUmlRenderer();
 
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new RichMarkdownEditorProvider(context);
@@ -282,6 +285,25 @@ export class RichMarkdownEditorProvider
         } catch (error) {
           logger.logDebug("Completion error", { error: String(error) });
           const errorMsg = requestCompletionMessage.error(String(error));
+          ctx.messageBroker.sendMessage(errorMsg);
+        }
+      }
+    );
+
+    // Register handler for PlantUML rendering
+    messageBroker.registerHandler(
+      renderPlantUmlMessage.requestType,
+      async (message: unknown) => {
+        const msg = message as IMessage<{ source: string }>;
+        try {
+          const imageData = await this.plantUmlRenderer.renderToDataUri(
+            msg.payload.source
+          );
+          const responseMsg = renderPlantUmlMessage.response(imageData);
+          ctx.messageBroker.sendMessage(responseMsg);
+        } catch (error) {
+          logger.logError(error);
+          const errorMsg = renderPlantUmlMessage.error(String(error));
           ctx.messageBroker.sendMessage(errorMsg);
         }
       }

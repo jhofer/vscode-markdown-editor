@@ -19,7 +19,8 @@ import sql from "refractor/lang/sql";
 import typescript from "refractor/lang/typescript";
 import yaml from "refractor/lang/yaml";
 
-import { Selection, TextSelection, Transaction } from "prosemirror-state";
+import { Selection } from "prosemirror-state";
+import type { TextSelection, Transaction } from "prosemirror-state";
 import { textblockTypeInputRule } from "prosemirror-inputrules";
 import copy from "copy-to-clipboard";
 import Prism, { LANGUAGES } from "../plugins/Prism";
@@ -129,10 +130,7 @@ export default class CodeFence extends Node {
       "Shift-Ctrl-\\": toggleBlockType(type, schema.nodes.paragraph),
       "Shift-Enter": (state, dispatch) => {
         if (!isInCode(state)) return false;
-        const {
-          tr,
-          selection,
-        }: { tr: Transaction; selection: TextSelection } = state;
+        const { tr, selection } = state;
         const text = selection?.$anchor?.nodeBefore?.text;
 
         let newText = "\n";

@@ -126,6 +126,15 @@ export default function blockMenuItems(
       name: "separator",
     },
     {
+      name: "plantuml",
+      title: dictionary.plantUml,
+      icon: CodeIcon,
+      keywords: "plantuml uml diagram sequence",
+    },
+    {
+      name: "separator",
+    },
+    {
       name: "container_notice",
       title: dictionary.infoNotice,
       icon: InfoIcon,

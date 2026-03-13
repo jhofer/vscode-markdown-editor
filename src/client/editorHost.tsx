@@ -21,6 +21,7 @@ import { useImages } from "./useImages";
 import { updateMarkdownMessage } from "../common/messages/updateMarkdown";
 import { openLinkMessage } from "../common/messages/openLink";
 import { readyMessage } from "../common/messages/ready";
+import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
 
 type searchResultCallback = (results: SearchResult[]) => void;
 
@@ -106,6 +107,10 @@ export function EditorHost(props: IEditorHostProps) {
     requestCompletionMessage
   );
   const [uploadImage, urlLookUp] = useImages(messageBroker, urlLookupRef);
+  const renderPlantUml = useBidirectionalEvent(
+    messageBroker,
+    renderPlantUmlMessage
+  );
 
   // Memoize the debounced handler to prevent recreation on every render
   const handleOutlineChange = useMemo(
@@ -203,6 +208,7 @@ export function EditorHost(props: IEditorHostProps) {
       uploadImage={uploadImage}
       onClickLink={handleClickLink}
       onGetImageData={urlLookUp}
+      onRenderPlantUml={renderPlantUml}
       onSave={handleSave}
       autoFocus
     />
@@ -243,7 +249,7 @@ export function EditorHost(props: IEditorHostProps) {
           {editMode === EditMode.RichText ? "< >" : "👁"}
         </button>
       </div>
-      <div style={{ padding: 40, maxWidth: 825, margin: "0 auto" }}>
+      <div className="editor-content">
         {editor}
       </div>
     </div>

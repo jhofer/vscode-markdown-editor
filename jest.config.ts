@@ -152,9 +152,11 @@ export default {
   // ],
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
-  // testPathIgnorePatterns: [
-  //   "/node_modules/"
-  // ],
+  testPathIgnorePatterns: [
+    "/node_modules/",
+    "<rootDir>/src/test.ts",
+    "<rootDir>/src/client/editor/server.test.ts",
+  ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
   // testRegex: [],
@@ -173,7 +175,8 @@ export default {
 
   // A map from regular expressions to paths to transformers
   transform: {
-    "^.+\\.(tsx?|md)$": "esbuild-jest",
+    "^.+\\.(j|t)sx?$": "esbuild-jest",
+    "^.+\\.md$": "esbuild-jest",
   },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation

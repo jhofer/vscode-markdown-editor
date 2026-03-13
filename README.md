@@ -20,6 +20,25 @@ This extension replaces the default code editor for markdown files with a rich v
 
 It uses the [rich-markdown-editor](https://github.com/outline/rich-markdown-editor) project generously open sourced by [Outline](https://www.getoutline.com/)
 
+## PlantUML Prerequisites
+
+PlantUML support requires local tooling for all diagram types.
+
+- Java Runtime (JRE/JDK 8+)
+- Graphviz (`dot` executable) for Graphviz-based diagrams such as class, component, and state diagrams
+
+Installation links:
+
+- Java: https://adoptium.net/
+- Graphviz: https://graphviz.org/download/
+
+After installation, ensure both commands are available in your terminal:
+
+- Windows (PowerShell): `java -version` and `dot -V`
+- macOS/Linux: `java -version` and `dot -V`
+
+If `dot` is not found, add Graphviz `bin` to your `PATH` and reload VS Code.
+
 ## Credits
 
 This project is based on [Rich Markdown Editor VSC](https://github.com/patmood/rich-markdown-editor-vsc) by [@patmood](https://github.com/patmood). We're grateful for their excellent work in bringing rich markdown editing to VS Code.

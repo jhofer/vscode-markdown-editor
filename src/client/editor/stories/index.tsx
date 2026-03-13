@@ -1,6 +1,11 @@
 import * as React from "react";
+import styled from "styled-components";
 import { dark, light } from "../styles/theme";
 import Editor from "..";
+
+const StoryContainer = styled.div`
+  padding: 1em 2em;
+`;
 
 const docSearchResults = [
   {
@@ -50,6 +55,7 @@ class YoutubeEmbed extends React.Component<{
 
     return (
       <iframe
+        title="YouTube embed"
         className={this.props.isSelected ? "ProseMirror-selectednode" : ""}
         src={`https://www.youtube.com/embed/${videoId}?modestbranding=1`}
       />
@@ -88,7 +94,7 @@ export default function Example(props) {
       : light.background;
 
   return (
-    <div style={{ padding: "1em 2em" }}>
+    <StoryContainer>
       <Editor
         onCreateLink={(title) => {
           // Delay to simulate time taken for remote API request to complete
@@ -130,6 +136,6 @@ export default function Example(props) {
         embeds={embeds}
         {...props}
       />
-    </div>
+    </StoryContainer>
   );
 }

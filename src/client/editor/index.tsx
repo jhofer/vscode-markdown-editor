@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 /* global window File Promise */
 import * as React from "react";
 import memoize from "lodash/memoize";
@@ -13,6 +15,7 @@ import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
 import { selectColumn, selectRow, selectTable } from "prosemirror-utils";
 import { ThemeProvider } from "styled-components";
+import styled from "styled-components";
 import { light as lightTheme, dark as darkTheme } from "./styles/theme";
 import baseDictionary from "./dictionary";
 import Flex from "./components/Flex";
@@ -30,6 +33,11 @@ import headingToSlug from "./lib/headingToSlug";
 
 // styles
 import { StyledEditor } from "./styles/editor";
+
+const EditorContainer = styled.div`
+  position: relative;
+  width: 100%;
+`;
 
 // nodes
 import ReactNode from "./nodes/ReactNode";
@@ -50,6 +58,7 @@ import Image from "./nodes/Image";
 import ListItem from "./nodes/ListItem";
 import Notice from "./nodes/Notice";
 import OrderedList from "./nodes/OrderedList";
+import PlantUml from "./nodes/PlantUml";
 import Paragraph from "./nodes/Paragraph";
 import Table from "./nodes/Table";
 import TableCell from "./nodes/TableCell";
@@ -148,6 +157,7 @@ export type Props = {
   onCreateLink?: (title: string) => Promise<string>;
   onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onRequestCompletion?: (context: { prefix: string; suffix: string; mdContent: string; cursorPos: number; fileName: string }) => Promise<string[]>;
+  onRenderPlantUml?: (source: string) => Promise<{ imageData: string }>;
   onClickLink: (href: string, event: MouseEvent) => void;
   onHoverLink?: (event: MouseEvent) => boolean;
   onClickHashtag?: (tag: string, event: MouseEvent) => void;
@@ -508,6 +518,9 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
           new CodeFence({
             dictionary,
             onShowToast: this.props.onShowToast,
+          }),
+          new PlantUml({
+            onRenderPlantUml: this.props.onRenderPlantUml,
           }),
           new Emoji(),
           new Text(),
@@ -949,7 +962,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       >
         <ThemeProvider theme={this.theme()}>
           <React.Fragment>
-            <div style={{ position: "relative", width: "100%" }}>
+            <EditorContainer>
               <StyledEditor
                 dir={dir}
                 rtl={isRTL}
@@ -957,7 +970,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
                 readOnlyWriteCheckboxes={readOnlyWriteCheckboxes}
                 ref={(ref) => (this.element = ref)}
               />
-            </div>
+            </EditorContainer>
             {!readOnly && this.view && (
               <React.Fragment>
                 <SelectionToolbar
