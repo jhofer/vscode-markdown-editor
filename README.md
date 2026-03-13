@@ -1,6 +1,6 @@
 # inkwell.md
 
-Edit markdown files with a rich editor in the style of Dropbox Paper/Notion etc.
+Edit markdown files with a rich editor in the style of Dropbox Paper/Notion etc., now with built-in PlantUML editing and preview.
 
 ![Demo](demo.gif)
 
@@ -12,6 +12,8 @@ Perfect for writing docs, authoring blog posts, and editing markdown website con
 - Format with markdown syntax or slash commands
 - Syntax highlighting for code blocks
 - Easily add tables, checkboxes, dividers, quotes, links etc
+- PlantUML blocks with side-by-side source editing and live diagram preview
+- Theme-aware PlantUML rendering with optional styled skinparams (`' themedstyle`)
 - **AI-powered completion suggestions** using GitHub Copilot (when available)
 - Smart completion that respects line endings and markdown context
 - Tab to accept, Escape to dismiss AI suggestions
