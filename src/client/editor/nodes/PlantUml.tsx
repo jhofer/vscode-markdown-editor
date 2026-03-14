@@ -265,7 +265,7 @@ function hasThemedStyleOptIn(source: string): boolean {
     .split(/\r?\n/)
     .find((line) => line.trim().length > 0);
 
-  return /^'\s*themedstyle\b/i.test(firstNonEmptyLine || "");
+  return /^'\s*vscode-style\b/i.test(firstNonEmptyLine || "");
 }
 
 // ---------------------------------------------------------------------------
