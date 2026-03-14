@@ -3,18 +3,17 @@
 \
 - [ ] Create an extension
 - [ ] Publish it to marketplace
-
-
-- [ ] Test the extension
 - [ ] Update documentation
+
+
+- [ ] Promote the extension
 - [ ] Gather user feedback
+- [ ] Implement feature requests
+- [ ] Fix bugs and issues
 
-
-
-@startuml
-' 
-VSCODE -> Client: Authentication Request
-Bob --> Client: Writes markdown
-@enduml
+| test | test | test |
+|----|----|----|
+| adsf | adsf | asdf |
+|    |    | ddd |
 
 \

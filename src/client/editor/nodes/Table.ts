@@ -1,6 +1,8 @@
 import Node from "./Node";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import {
+  addRowAfter as addRowAfterCommand,
+  addRowBefore as addRowBeforeCommand,
   addColumnAfter,
   addColumnBefore,
   deleteColumn,
@@ -16,10 +18,8 @@ import {
   toggleHeaderRow,
 } from "prosemirror-tables";
 import {
-  addRowAt,
   createTable,
   getCellsInColumn,
-  moveRow,
 } from "prosemirror-utils";
 import { Plugin, TextSelection } from "prosemirror-state";
 import tablesRule from "../rules/tables";
@@ -78,16 +78,8 @@ export default class Table extends Node {
       addColumnBefore: () => addColumnBefore,
       addColumnAfter: () => addColumnAfter,
       deleteColumn: () => deleteColumn,
-      addRowAfter: ({ index }) => (state, dispatch) => {
-        if (index === 0) {
-          // A little hack to avoid cloning the heading row by cloning the row
-          // beneath and then moving it to the right index.
-          const tr = addRowAt(index + 2, true)(state.tr);
-          dispatch(moveRow(index + 2, index + 1)(tr));
-        } else {
-          dispatch(addRowAt(index + 1, true)(state.tr));
-        }
-      },
+      addRowBefore: () => addRowBeforeCommand,
+      addRowAfter: () => addRowAfterCommand,
       deleteRow: () => deleteRow,
       deleteTable: () => deleteTable,
       toggleHeaderColumn: () => toggleHeaderColumn,
@@ -100,17 +92,39 @@ export default class Table extends Node {
 
   keys() {
     return {
-      Tab: goToNextCell(1),
+      Tab: (state, dispatch, view) => {
+        if (goToNextCell(1)(state, dispatch)) {
+          return true;
+        }
+
+        if (!isInTable(state)) {
+          return false;
+        }
+
+        // When tabbing from the last cell, insert a row and move to its first cell.
+        const inserted = addRowAfterCommand(state, dispatch);
+        if (inserted && view) {
+          goToNextCell(1)(view.state, view.dispatch);
+        }
+
+        // Keep Tab handling within the editor so focus doesn't leave the window.
+        return true;
+      },
       "Shift-Tab": goToNextCell(-1),
-      Enter: (state, dispatch) => {
+      Enter: (state, dispatch, view) => {
         if (!isInTable(state)) return false;
 
-        // TODO: Adding row at the end for now, can we find the current cell
-        // row index and add the row below that?
-        const cells = getCellsInColumn(0)(state.selection) || [];
+        // Only add a row on Enter when there is no next cell (last cell).
+        if (goToNextCell(1)(state)) {
+          return false;
+        }
 
-        dispatch(addRowAt(cells.length, true)(state.tr));
-        return true;
+        const inserted = addRowAfterCommand(state, dispatch);
+        if (inserted && view) {
+          goToNextCell(1)(view.state, view.dispatch);
+        }
+
+        return inserted;
       },
     };
   }

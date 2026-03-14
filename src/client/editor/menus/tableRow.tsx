@@ -10,10 +10,9 @@ export default function tableRowMenuItems(
 ): MenuItem[] {
   return [
     {
-      name: "addRowAfter",
+      name: "addRowBefore",
       tooltip: dictionary.addRowBefore,
       icon: InsertAboveIcon,
-      attrs: { index: index - 1 },
       active: () => false,
       visible: index !== 0,
     },
