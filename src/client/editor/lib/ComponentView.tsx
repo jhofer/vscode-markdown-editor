@@ -13,6 +13,7 @@ type Component = (options: {
   isSelected: boolean;
   isEditable: boolean;
   getPos: () => number;
+  view: EditorView;
 }) => React.ReactElement;
 
 export default class ComponentView {
@@ -55,6 +56,7 @@ export default class ComponentView {
       isSelected: this.isSelected,
       isEditable: this.view.editable,
       getPos: this.getPos,
+      view: this.view,
     });
 
     ReactDOM.render(

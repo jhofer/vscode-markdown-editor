@@ -535,6 +535,10 @@ const PlantUmlView: React.FC<Props> = ({
 
   const handleCodeMirrorChange = React.useCallback(
     (newSource: string) => {
+      if (!view) {
+        return;
+      }
+
       setPreviewSource(newSource);
 
       const pos = getPos();
@@ -561,6 +565,10 @@ const PlantUmlView: React.FC<Props> = ({
   const handleSelect = React.useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
+
+      if (!view) {
+        return;
+      }
 
       const pos = getPos();
       const $pos = view.state.doc.resolve(pos);
@@ -670,14 +678,14 @@ export default class PlantUml extends Node {
     };
   }
 
-  component = ({ node, isSelected, isEditable, getPos }: any) => {
+  component = ({ node, isSelected, isEditable, getPos, view }: any) => {
     return (
       <PlantUmlView
         node={node}
         isSelected={isSelected}
         isEditable={isEditable}
         getPos={getPos}
-        view={this.editor.view}
+        view={view}
         renderPlantUml={this.options.onRenderPlantUml}
       />
     );
