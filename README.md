@@ -22,19 +22,21 @@ This extension replaces the default code editor for markdown files with a rich v
 
 It uses the [rich-markdown-editor](https://github.com/outline/rich-markdown-editor) project generously open sourced by [Outline](https://www.getoutline.com/)
 
+
 ## PlantUML Prerequisites
 
-PlantUML support requires local tooling for all diagram types.
+PlantUML support ships with the extension's bundled `node-plantuml` runtime dependency. You only need local system tooling.
 
-- Java Runtime (JRE/JDK 8+)
-- Graphviz (`dot` executable) for Graphviz-based diagrams such as class, component, and state diagrams
+- **System dependencies:**
+	- Java Runtime (JRE/JDK 8+)
+	- Graphviz (`dot` executable) for Graphviz-based diagrams such as class, component, and state diagrams
 
 Installation links:
 
 - Java: https://adoptium.net/
 - Graphviz: https://graphviz.org/download/
 
-After installation, ensure both commands are available in your terminal:
+After installation, ensure these commands are available in your terminal:
 
 - Windows (PowerShell): `java -version` and `dot -V`
 - macOS/Linux: `java -version` and `dot -V`

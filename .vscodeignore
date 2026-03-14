@@ -3,6 +3,7 @@
 .vscode/**
 .github/**
 src/**
+scripts/**
 node_modules/**
 !node_modules/node-plantuml/**
 !node_modules/node-nailgun-client/**
