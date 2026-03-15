@@ -84,7 +84,8 @@ export class ClientMessageBroker {
     );
 
     if (registeredHandler.length === 0) {
-      throw new Error(`No handler registered for message type: ${type}`);
+      console.warn(`No handler registered for message type: ${type}`);
+      return;
     }
     console.log(`Calling ${registeredHandler.length} handler(s) for type: ${type}`);
     registeredHandler.forEach((h) => {
