@@ -7,7 +7,8 @@ import { EditorState as CMState } from "@codemirror/state";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
 
-const DEFAULT_DIAGRAM = `Alice -> Bob: Authentication Request
+const DEFAULT_DIAGRAM = `' Sequence diagram: illustrates a request/response flow between participants
+Alice -> Bob: Authentication Request
 Bob --> Alice: Authentication Response`;
 
 let plantUmlRenderQueue: Promise<void> = Promise.resolve();
