@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import TextareaAutosize from "react-textarea-autosize";
 import {
   debounce,
   formatText,
@@ -22,6 +21,7 @@ import { updateMarkdownMessage } from "../common/messages/updateMarkdown";
 import { openLinkMessage } from "../common/messages/openLink";
 import { readyMessage } from "../common/messages/ready";
 import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
+import { CodeMirrorEditor } from "./rawEditor";
 
 type searchResultCallback = (results: SearchResult[]) => void;
 
@@ -40,6 +40,7 @@ export function EditorHost(props: IEditorHostProps) {
     useVSCodeState<string>("markdownText");
 
   const [editMode, setEditMode] = useState<EditMode>(EditMode.RichText);
+  const [isFullWidth, setIsFullWidth] = useState<boolean>(false);
 
   // Create a ref to store URL lookups that can be updated by message handler
   const urlLookupRef = useRef<Record<string, string>>({});
@@ -130,8 +131,7 @@ export function EditorHost(props: IEditorHostProps) {
   );
 
   const handleMarkdownChange = useCallback(
-    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const value = event.target.value;
+    (value: string) => {
       // Track that we're sending this update so we can ignore the echo
       lastSentMarkdownRef.current = value;
       pendingUpdateRef.current = true;
@@ -215,12 +215,10 @@ export function EditorHost(props: IEditorHostProps) {
   );
 
   const markdownEditor = (
-    <TextareaAutosize
-      title="Markdown Raw"
-      className="markdownRaw"
-      onChange={handleMarkdownChange}
+    <CodeMirrorEditor
       value={markdownText || ""}
-    ></TextareaAutosize>
+      onChange={handleMarkdownChange}
+    />
   );
 
   const editor =
@@ -248,8 +246,17 @@ export function EditorHost(props: IEditorHostProps) {
         >
           {editMode === EditMode.RichText ? "< >" : "👁"}
         </button>
+        <button
+          title={isFullWidth ? "Switch to normal width" : "Switch to full width"}
+          aria-label={isFullWidth ? "Switch to normal width" : "Switch to full width"}
+          type="button"
+          className="btn"
+          onClick={() => setIsFullWidth(!isFullWidth)}
+        >
+          {isFullWidth ? "⇥⇤" : "⇤⇥"}
+        </button>
       </div>
-      <div className="editor-content">
+      <div className={`editor-content${isFullWidth ? " full-width" : ""}`}>
         {editor}
       </div>
     </div>

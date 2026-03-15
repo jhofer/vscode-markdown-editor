@@ -11,14 +11,26 @@
   right: 0;
   display: flex;
   justify-content: space-between;
-  flex-direction: row-reverse;
+  flex-direction: column;
   padding: 10px 0;
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+}
+
+.container:hover .toolbar,
+.container:focus-within .toolbar {
+  opacity: 1;
 }
 
 .editor-content {
   padding: 40px;
   max-width: 825px;
   margin: 0 auto;
+  transition: max-width 200ms ease-in-out;
+}
+
+.editor-content.full-width {
+  max-width: 100%;
 }
 
 .btn {
@@ -48,5 +60,15 @@
   resize: none; /* Prevent manual resizing */
 }
 .markdownRaw:focus {
+  outline: none;
+}
+
+.codeMirrorRaw {
+  height: 100%;
+  min-height: calc(100vh - 80px);
+}
+
+.codeMirrorRaw .cm-editor {
+  height: 100%;
   outline: none;
 }
