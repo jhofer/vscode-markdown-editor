@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import TextareaAutosize from "react-textarea-autosize";
 import {
   debounce,
   formatText,
@@ -22,6 +21,7 @@ import { updateMarkdownMessage } from "../common/messages/updateMarkdown";
 import { openLinkMessage } from "../common/messages/openLink";
 import { readyMessage } from "../common/messages/ready";
 import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
+import { CodeMirrorEditor } from "./rawEditor";
 
 type searchResultCallback = (results: SearchResult[]) => void;
 
@@ -131,8 +131,7 @@ export function EditorHost(props: IEditorHostProps) {
   );
 
   const handleMarkdownChange = useCallback(
-    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const value = event.target.value;
+    (value: string) => {
       // Track that we're sending this update so we can ignore the echo
       lastSentMarkdownRef.current = value;
       pendingUpdateRef.current = true;
@@ -216,12 +215,10 @@ export function EditorHost(props: IEditorHostProps) {
   );
 
   const markdownEditor = (
-    <TextareaAutosize
-      title="Markdown Raw"
-      className="markdownRaw"
-      onChange={handleMarkdownChange}
+    <CodeMirrorEditor
       value={markdownText || ""}
-    ></TextareaAutosize>
+      onChange={handleMarkdownChange}
+    />
   );
 
   const editor =
