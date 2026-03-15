@@ -40,6 +40,7 @@ export function EditorHost(props: IEditorHostProps) {
     useVSCodeState<string>("markdownText");
 
   const [editMode, setEditMode] = useState<EditMode>(EditMode.RichText);
+  const [isFullWidth, setIsFullWidth] = useState<boolean>(false);
 
   // Create a ref to store URL lookups that can be updated by message handler
   const urlLookupRef = useRef<Record<string, string>>({});
@@ -248,8 +249,17 @@ export function EditorHost(props: IEditorHostProps) {
         >
           {editMode === EditMode.RichText ? "< >" : "👁"}
         </button>
+        <button
+          title={isFullWidth ? "Switch to normal width" : "Switch to full width"}
+          aria-label={isFullWidth ? "Switch to normal width" : "Switch to full width"}
+          type="button"
+          className="btn"
+          onClick={() => setIsFullWidth(!isFullWidth)}
+        >
+          {isFullWidth ? "⇥⇤" : "⇤⇥"}
+        </button>
       </div>
-      <div className="editor-content">
+      <div className={`editor-content${isFullWidth ? " full-width" : ""}`}>
         {editor}
       </div>
     </div>

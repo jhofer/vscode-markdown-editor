@@ -13,12 +13,24 @@
   justify-content: space-between;
   flex-direction: row-reverse;
   padding: 10px 0;
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+}
+
+.container:hover .toolbar,
+.container:focus-within .toolbar {
+  opacity: 1;
 }
 
 .editor-content {
   padding: 40px;
   max-width: 825px;
   margin: 0 auto;
+  transition: max-width 200ms ease-in-out;
+}
+
+.editor-content.full-width {
+  max-width: 100%;
 }
 
 .btn {
