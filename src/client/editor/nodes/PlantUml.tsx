@@ -7,7 +7,9 @@ import { EditorState as CMState } from "@codemirror/state";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
 
-const DEFAULT_DIAGRAM = `Alice -> Bob: Authentication Request
+const DEFAULT_DIAGRAM = `' vscode-style
+' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
+Alice -> Bob: Authentication Request
 Bob --> Alice: Authentication Response`;
 
 let plantUmlRenderQueue: Promise<void> = Promise.resolve();
