@@ -59,6 +59,7 @@ type State = {
     [keyword: string]: SearchResult[];
   };
   value: string;
+  titleValue: string;
   previousValue: string;
   selectedIndex: number;
 };
@@ -66,17 +67,25 @@ type State = {
 class LinkEditor extends React.Component<Props, State> {
   discardInputValue = false;
   initialValue = this.href;
+  initialTitle = this.linkTitle;
   initialSelectionLength = this.props.to - this.props.from;
 
   state: State = {
     selectedIndex: -1,
     value: this.href,
+    titleValue: this.linkTitle,
     previousValue: "",
     results: {},
   };
 
   get href(): string {
     return this.props.mark ? this.props.mark.attrs.href : "";
+  }
+
+  get linkTitle(): string {
+    const { view, from, to } = this.props;
+    if (from === to) return "";
+    return view.state.doc.cut(from, to).textContent;
   }
 
   get suggestedLinkTitle(): string {
@@ -96,8 +105,8 @@ class LinkEditor extends React.Component<Props, State> {
       return;
     }
 
-    // If the link is the same as it was when the editor opened, nothing to do
-    if (this.state.value === this.initialValue) {
+    // If the link and title are the same as when the editor opened, nothing to do
+    if (this.state.value === this.initialValue && this.state.titleValue === this.initialTitle) {
       return;
     }
 
@@ -129,7 +138,9 @@ class LinkEditor extends React.Component<Props, State> {
       href = `https://${href}`;
     }
 
-    this.props.onSelectLink({ href, title, from, to });
+    // Prefer the explicitly entered title; fall back to the provided title or the href
+    const finalTitle = this.state.titleValue.trim() || title || href;
+    this.props.onSelectLink({ href, title: finalTitle, from, to });
   };
 
   handleKeyDown = (event: React.KeyboardEvent): void => {
@@ -202,6 +213,10 @@ class LinkEditor extends React.Component<Props, State> {
 
   handleFocusLink = (selectedIndex: number) => {
     this.setState({ selectedIndex });
+  };
+
+  handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    this.setState({ titleValue: event.target.value });
   };
 
   handleChange = async (event): Promise<void> => {
@@ -284,7 +299,7 @@ class LinkEditor extends React.Component<Props, State> {
 
   render() {
     const { dictionary, theme } = this.props;
-    const { value, selectedIndex } = this.state;
+    const { value, titleValue, selectedIndex } = this.state;
     const results =
       this.state.results[value.trim()] ||
       this.state.results[this.state.previousValue] ||
@@ -307,32 +322,39 @@ class LinkEditor extends React.Component<Props, State> {
     return (
       <Wrapper>
         <Input
-          value={value}
-          placeholder={
-            showCreateLink
-              ? dictionary.findOrCreateDoc
-              : dictionary.searchOrPasteLink
-          }
-          onKeyDown={this.handleKeyDown}
-          onPaste={this.handlePaste}
-          onChange={this.handleChange}
-          autoFocus={this.href === ""}
+          value={titleValue}
+          placeholder={dictionary.linkTitle}
+          onChange={this.handleTitleChange}
         />
+        <UrlRow>
+          <Input
+            value={value}
+            placeholder={
+              showCreateLink
+                ? dictionary.findOrCreateDoc
+                : dictionary.searchOrPasteLink
+            }
+            onKeyDown={this.handleKeyDown}
+            onPaste={this.handlePaste}
+            onChange={this.handleChange}
+            autoFocus={this.href === ""}
+          />
 
-        <ToolbarButton onClick={this.handleOpenLink} disabled={!value}>
-          <Tooltip tooltip={dictionary.openLink} placement="top">
-            <OpenIcon color={theme.toolbarItem} />
-          </Tooltip>
-        </ToolbarButton>
-        <ToolbarButton onClick={this.handleRemoveLink}>
-          <Tooltip tooltip={dictionary.removeLink} placement="top">
-            {this.initialValue ? (
-              <TrashIcon color={theme.toolbarItem} />
-            ) : (
-              <CloseIcon color={theme.toolbarItem} />
-            )}
-          </Tooltip>
-        </ToolbarButton>
+          <ToolbarButton onClick={this.handleOpenLink} disabled={!value}>
+            <Tooltip tooltip={dictionary.openLink} placement="top">
+              <OpenIcon color={theme.toolbarItem} />
+            </Tooltip>
+          </ToolbarButton>
+          <ToolbarButton onClick={this.handleRemoveLink}>
+            <Tooltip tooltip={dictionary.removeLink} placement="top">
+              {this.initialValue ? (
+                <TrashIcon color={theme.toolbarItem} />
+              ) : (
+                <CloseIcon color={theme.toolbarItem} />
+              )}
+            </Tooltip>
+          </ToolbarButton>
+        </UrlRow>
 
         {showResults && (
           <SearchResults id="link-search-results">
@@ -376,7 +398,12 @@ const Wrapper = styled(Flex)`
   margin-left: -8px;
   margin-right: -8px;
   min-width: 336px;
+  flex-direction: column;
   pointer-events: all;
+`;
+
+const UrlRow = styled(Flex)`
+  width: 100%;
 `;
 
 const SearchResults = styled.ol`

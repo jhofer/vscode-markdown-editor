@@ -49,6 +49,7 @@ export const base = {
   pasteLinkWithTitle: (title: string): string => `Paste a ${title} link…`,
   placeholder: "Placeholder",
   quote: "Quote",
+  linkTitle: "Link title",
   removeLink: "Remove link",
   searchOrPasteLink: "Search or paste a link…",
   strikethrough: "Strikethrough",

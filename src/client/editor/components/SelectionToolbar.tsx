@@ -140,10 +140,12 @@ export default class SelectionToolbar extends React.Component<Props> {
 
   handleOnSelectLink = ({
     href,
+    title,
     from,
     to,
   }: {
     href: string;
+    title?: string;
     from: number;
     to: number;
   }): void => {
@@ -152,11 +154,21 @@ export default class SelectionToolbar extends React.Component<Props> {
 
     const markType = state.schema.marks.link;
 
-    dispatch(
-      state.tr
-        .removeMark(from, to, markType)
-        .addMark(from, to, markType.create({ href }))
-    );
+    if (title) {
+      // insertText replaces [from, to] with title; the new range is
+      // [from, from + title.length], so addMark must use the updated end position.
+      dispatch(
+        state.tr
+          .insertText(title, from, to)
+          .addMark(from, from + title.length, markType.create({ href }))
+      );
+    } else {
+      dispatch(
+        state.tr
+          .removeMark(from, to, markType)
+          .addMark(from, to, markType.create({ href }))
+      );
+    }
   };
 
   render() {
