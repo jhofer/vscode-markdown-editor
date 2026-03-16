@@ -1,32 +1,71 @@
 const fs = require("fs");
+const https = require("https");
 const path = require("path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const plantumlRoot = path.join(repoRoot, "node_modules", "node-plantuml");
+const vendorDir = path.join(repoRoot, "vendor");
+const jarPath = path.join(vendorDir, "plantuml.jar");
 
-const copyTargets = [
-  {
-    source: path.join(plantumlRoot, "vendor"),
-    destination: path.join(repoRoot, "vendor"),
-  },
-  {
-    source: path.join(plantumlRoot, "nail"),
-    destination: path.join(repoRoot, "nail"),
-  },
-];
+// PlantUML v1.2024.8 – the last release that supports Java 8.
+// Later versions require Java 11+.
+// To use the latest PlantUML, install Java 11+ and change this to:
+//   https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
+const PLANTUML_JAR_URL =
+  "https://github.com/plantuml/plantuml/releases/download/v1.2024.8/plantuml-1.2024.8.jar";
 
-if (!fs.existsSync(plantumlRoot)) {
-  throw new Error(
-    "node-plantuml is not installed. Run 'npm install' before building."
-  );
+function download(url, dest) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, (response) => {
+      // Follow redirects (GitHub redirects to a CDN)
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        download(response.headers.location, dest).then(resolve, reject);
+        return;
+      }
+
+      if (response.statusCode !== 200) {
+        reject(new Error(`Download failed with status ${response.statusCode}`));
+        return;
+      }
+
+      const file = fs.createWriteStream(dest);
+      response.pipe(file);
+      file.on("finish", () => {
+        file.close(resolve);
+      });
+      file.on("error", (err) => {
+        fs.unlinkSync(dest);
+        reject(err);
+      });
+    });
+
+    request.on("error", reject);
+  });
 }
 
-for (const target of copyTargets) {
-  if (!fs.existsSync(target.source)) {
-    throw new Error(`Missing PlantUML asset directory: ${target.source}`);
+async function main() {
+  // Create vendor directory if it doesn't exist
+  fs.mkdirSync(vendorDir, { recursive: true });
+
+  // Remove old nail directory if it exists (no longer needed)
+  const nailDir = path.join(repoRoot, "nail");
+  if (fs.existsSync(nailDir)) {
+    fs.rmSync(nailDir, { recursive: true, force: true });
+    console.log("Removed obsolete nail/ directory");
   }
 
-  fs.rmSync(target.destination, { recursive: true, force: true });
-  fs.cpSync(target.source, target.destination, { recursive: true });
-  console.log(`Copied ${target.source} -> ${target.destination}`);
+  // Skip download if JAR already exists
+  if (fs.existsSync(jarPath)) {
+    console.log(`PlantUML JAR already exists at ${jarPath}, skipping download.`);
+    console.log("Delete vendor/plantuml.jar to force re-download.");
+    return;
+  }
+
+  console.log(`Downloading PlantUML JAR from ${PLANTUML_JAR_URL}...`);
+  await download(PLANTUML_JAR_URL, jarPath);
+  console.log(`Downloaded PlantUML JAR to ${jarPath}`);
 }
+
+main().catch((err) => {
+  console.error("Failed to prepare PlantUML assets:", err);
+  process.exit(1);
+});
