@@ -6,7 +6,7 @@ export const outputChannel: {
   instance: null,
 };
 
-const printChannelOutput = (content: string, reveal = true): void => {
+const printChannelOutput = (content: string, reveal = false): void => {
   if (!outputChannel.instance) {
     throw new Error("Output channel not initialized");
   }
@@ -29,7 +29,7 @@ const toString = (obj: any): string => {
 const logWithPrefix = (
   logLevel: string,
   params: any[],
-  reveal = true
+  reveal = false
 ): void => {
   const strings = params.map((param) => toString(param));
   const message = strings.join("\n");
@@ -44,7 +44,7 @@ const logger = {
 
   logWarning: (...params: any[]): void => logWithPrefix("Warning", params),
 
-  logError: (...params: any[]): void => logWithPrefix("Error", params, true),
+  logError: (...params: any[]): void => logWithPrefix("Error", params),
 };
 
 export const initializeOutputChannel = (): void => {
