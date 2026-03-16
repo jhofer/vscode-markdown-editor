@@ -175,8 +175,8 @@ export default {
 
   // A map from regular expressions to paths to transformers
   transform: {
-    "^.+\\.(j|t)sx?$": "esbuild-jest",
-    "^.+\\.md$": "esbuild-jest",
+    "^.+\\.(j|t)sx?$": "@swc/jest",
+    "^.+\\.md$": "<rootDir>/jest-md-transformer.js",
   },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
