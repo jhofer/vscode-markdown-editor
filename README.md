@@ -12,6 +12,7 @@ Perfect for writing docs, authoring blog posts, and editing markdown website con
 * Format with markdown syntax or slash commands
 * Syntax highlighting for code blocks
 * Easily add tables, checkboxes, dividers, quotes, links etc
+* **Edit links** with `Ctrl+K` / `Cmd+K` — opens a two-field dialog to set or update both the link title and URL; works on new text selections and on existing links with pre-populated values
 * PlantUML blocks with side-by-side source editing and live diagram preview
 * Theme-aware PlantUML rendering with optional styled skinparams (`' vscode-style`)
 * **AI-powered completion suggestions** using GitHub Copilot (when available)
