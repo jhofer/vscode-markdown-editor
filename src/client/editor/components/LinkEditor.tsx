@@ -334,6 +334,7 @@ class LinkEditor extends React.Component<Props, State> {
           placeholder={dictionary.linkTitle}
           onChange={this.handleTitleChange}
           onKeyDown={this.handleTitleKeyDown}
+          autoFocus={this.href !== ""}
         />
         <UrlRow>
           <Input
