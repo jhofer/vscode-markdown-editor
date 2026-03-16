@@ -4,6 +4,7 @@ import LinkEditor, { SearchResult } from "./LinkEditor";
 import FloatingToolbar from "./FloatingToolbar";
 import createAndInsertLink from "../commands/createAndInsertLink";
 import baseDictionary from "../dictionary";
+import getMarkRange from "../queries/getMarkRange";
 
 type Props = {
   isActive: boolean;
@@ -97,6 +98,8 @@ export default class LinkToolbar extends React.Component<Props> {
   handleOnSelectLink = ({
     href,
     title,
+    from,
+    to,
   }: {
     href: string;
     title: string;
@@ -109,18 +112,13 @@ export default class LinkToolbar extends React.Component<Props> {
     this.props.view.focus();
 
     const { dispatch, state } = view;
-    const { from, to } = state.selection;
-    if (from !== to) {
-      // selection must be collapsed
-      return;
-    }
 
     dispatch(
       view.state.tr
         .insertText(title, from, to)
         .addMark(
           from,
-          to + title.length,
+          from + title.length,
           state.schema.marks.link.create({ href })
         )
     );
@@ -128,15 +126,22 @@ export default class LinkToolbar extends React.Component<Props> {
 
   render() {
     const { onCreateLink, onClose, ...rest } = this.props;
-    const { selection } = this.props.view.state;
+    const { view } = this.props;
+    const { state } = view;
+    const { selection } = state;
     const active = isActive(this.props);
+
+    // When the cursor is inside an existing link, use the mark's range so the
+    // editor is pre-populated with the current title and URL.
+    const linkRange = getMarkRange(selection.$from, state.schema.marks.link);
 
     return (
       <FloatingToolbar ref={this.menuRef} active={active} {...rest}>
         {active && (
           <LinkEditor
-            from={selection.from}
-            to={selection.to}
+            mark={linkRange ? linkRange.mark : undefined}
+            from={linkRange ? linkRange.from : selection.from}
+            to={linkRange ? linkRange.to : selection.to}
             onCreateLink={onCreateLink ? this.handleOnCreateLink : undefined}
             onSelectLink={this.handleOnSelectLink}
             onRemoveLink={onClose}

@@ -234,6 +234,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
   commands: Record<string, any>;
   rulePlugins: PluginSimple[];
   completionOriginalState: EditorState | null;
+  completionRequestId: number;
+  completionRequestInFlight: boolean;
 
   componentDidMount() {
     this.init();
@@ -292,13 +294,23 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
    * Reject the current AI completion by restoring the original editor state
    */
   dismissCompletion = () => {
+    // Cancel any pending async completion insertion
+    this.completionRequestId += 1;
+    this.completionRequestInFlight = false;
+
     if (this.completionOriginalState) {
       // Restore the original state (removes AI completion text and marks)
-      const tr = this.view.state.tr.setSelection(this.completionOriginalState.selection);
       this.view.updateState(this.completionOriginalState);
       this.completionOriginalState = null;
       console.log("AI completion rejected - state restored");
     }
+  };
+
+  /**
+   * Returns true when a completion request is currently in-flight
+   */
+  hasPendingCompletionRequest = (): boolean => {
+    return this.completionRequestInFlight;
   };
 
   /**
@@ -364,9 +376,18 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
 
     // Store the current state before insertion (for rejection)
     this.completionOriginalState = state;
+    this.completionRequestInFlight = true;
+    const requestId = ++this.completionRequestId;
 
     // Trigger completion request asynchronously
     onRequestCompletion(context).then((suggestions) => {
+      // Ignore stale/cancelled responses
+      if (requestId !== this.completionRequestId) {
+        console.log("Ignoring stale AI completion response");
+        return;
+      }
+
+      this.completionRequestInFlight = false;
       console.log("Completion response:", suggestions);
       if (suggestions && suggestions.length > 0) {
         const suggestion = suggestions[0];
@@ -415,6 +436,11 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
         this.completionOriginalState = null;
       }
     }).catch((error) => {
+      if (requestId !== this.completionRequestId) {
+        return;
+      }
+
+      this.completionRequestInFlight = false;
       console.error("Completion request error:", error);
       this.completionOriginalState = null;
     });
@@ -498,6 +524,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     this.commands = this.createCommands();
     // Initialize completion state
     this.completionOriginalState = null;
+    this.completionRequestId = 0;
+    this.completionRequestInFlight = false;
   }
 
   createExtensions() {
@@ -584,6 +612,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             onRequestCompletion: this.requestCompletion,
             onAcceptCompletion: this.acceptCompletion,
             onDismissCompletion: this.dismissCompletion,
+            hasPendingCompletion: this.hasPendingCompletionRequest,
           }),
           new BlockMenuTrigger({
             dictionary,
@@ -751,10 +780,19 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
 
         this.updateState(state);
 
-        // Auto-reject AI completion if user makes any edit (unless it's the AI insertion itself)
+        // If user edits while a request is in flight, cancel the pending request.
+        if (transactions.some((tr) => tr.docChanged && !tr.getMeta('aiCompletion'))) {
+          if (self.completionRequestInFlight) {
+            self.completionRequestId += 1;
+            self.completionRequestInFlight = false;
+          }
+        }
+
+        // Auto-accept AI completion (remove AI marks, keep text) if user edits the doc
+        // (unless it's the AI insertion itself)
         if (transactions.some((tr) => tr.docChanged && !tr.getMeta('aiCompletion'))) {
           if (self.hasAICompletion()) {
-            self.dismissCompletion();
+            self.acceptCompletion();
           }
         }
 

@@ -12,6 +12,7 @@ Perfect for writing docs, authoring blog posts, and editing markdown website con
 * Format with markdown syntax or slash commands
 * Syntax highlighting for code blocks
 * Easily add tables, checkboxes, dividers, quotes, links etc
+* **Edit links** with `Ctrl+K` / `Cmd+K` — opens a two-field dialog to set or update both the link title and URL; works on new text selections and on existing links with pre-populated values
 * PlantUML blocks with side-by-side source editing and live diagram preview
 * Theme-aware PlantUML rendering with optional styled skinparams (`' vscode-style`)
 * **AI-powered completion suggestions** using GitHub Copilot (when available)
@@ -24,11 +25,11 @@ It uses the [rich-markdown-editor](https://github.com/outline/rich-markdown-edit
 
 ## PlantUML Prerequisites
 
-PlantUML support ships with the extension's bundled `node-plantuml` runtime dependency. You only need local system tooling.
+PlantUML support is **bundled with the extension** - no separate PlantUML installation required. The extension ships with all necessary PlantUML runtime files. You only need:
 
 * **System dependencies:**
-  * Java Runtime (JRE/JDK 8+)
-  * Graphviz (`dot` executable) for Graphviz-based diagrams such as class, component, and state diagrams
+  * Java Runtime (JRE/JDK 8+) - required to run PlantUML
+  * Graphviz (`dot` executable) - required for certain diagram types (class, component, state diagrams, etc.)
 
 Installation links:
 

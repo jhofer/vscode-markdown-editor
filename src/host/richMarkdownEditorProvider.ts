@@ -31,7 +31,7 @@ export class RichMarkdownEditorProvider
   // Map of document URI to editor context
   private editors: Map<string, EditorContext> = new Map();
   private copilotProvider = new CopilotProvider();
-  private plantUmlRenderer = new PlantUmlRenderer();
+  private plantUmlRenderer: PlantUmlRenderer;
 
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new RichMarkdownEditorProvider(context);
@@ -44,7 +44,9 @@ export class RichMarkdownEditorProvider
 
   public static readonly viewType = "inkwell.md";
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: vscode.ExtensionContext) {
+    this.plantUmlRenderer = new PlantUmlRenderer(context.extensionUri.fsPath);
+  }
 
   dataURItoBuffer = (dataURI: string) => {
     const byteString = Buffer.from(dataURI.split(",")[1], "base64");

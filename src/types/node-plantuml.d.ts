@@ -1,17 +1,2 @@
-declare module "node-plantuml" {
-  type PlantUmlGenerator = {
-    out?: NodeJS.ReadableStream;
-  };
-
-  type GenerateOptions = {
-    format?: string;
-    charset?: string;
-    [key: string]: unknown;
-  };
-
-  const api: {
-    generate(source: string, options?: GenerateOptions): PlantUmlGenerator;
-  };
-
-  export default api;
-}
+// This file is intentionally left empty.
+// node-plantuml has been replaced with direct Java/JAR invocation.

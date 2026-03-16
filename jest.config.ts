@@ -155,7 +155,6 @@ export default {
   testPathIgnorePatterns: [
     "/node_modules/",
     "<rootDir>/src/test.ts",
-    "<rootDir>/src/client/editor/server.test.ts",
   ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
@@ -180,10 +179,9 @@ export default {
   },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
-  // transformIgnorePatterns: [
-  //   "/node_modules/",
-  //   "\\.pnp\\.[^\\/]+$"
-  // ],
+  transformIgnorePatterns: [
+    "/node_modules/(?!(refractor|hastscript|parse-entities|hast-util-parse-selector|property-information|comma-separated-tokens|space-separated-tokens|character-entities|character-entities-legacy|character-reference-invalid|decode-named-character-reference|is-alphabetical|is-alphanumerical|is-decimal|is-hexadecimal)/)",
+  ],
 
   // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
   // unmockedModulePathPatterns: undefined,
