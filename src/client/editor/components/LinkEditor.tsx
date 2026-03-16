@@ -69,6 +69,7 @@ class LinkEditor extends React.Component<Props, State> {
   initialValue = this.href;
   initialTitle = this.linkTitle;
   initialSelectionLength = this.props.to - this.props.from;
+  urlInputRef = React.createRef<HTMLInputElement>();
 
   state: State = {
     selectedIndex: -1,
@@ -219,6 +220,13 @@ class LinkEditor extends React.Component<Props, State> {
     this.setState({ titleValue: event.target.value });
   };
 
+  handleTitleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      this.urlInputRef.current?.focus();
+    }
+  };
+
   handleChange = async (event): Promise<void> => {
     const value = event.target.value;
 
@@ -325,9 +333,11 @@ class LinkEditor extends React.Component<Props, State> {
           value={titleValue}
           placeholder={dictionary.linkTitle}
           onChange={this.handleTitleChange}
+          onKeyDown={this.handleTitleKeyDown}
         />
         <UrlRow>
           <Input
+            ref={this.urlInputRef}
             value={value}
             placeholder={
               showCreateLink
@@ -399,6 +409,7 @@ const Wrapper = styled(Flex)`
   margin-right: -8px;
   min-width: 336px;
   flex-direction: column;
+  gap: 4px;
   pointer-events: all;
 `;
 
