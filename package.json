@@ -106,6 +106,7 @@
     "@types/vscode-webview": "^1.57.5",
     "@typescript-eslint/eslint-plugin": "^5.15.0",
     "@typescript-eslint/parser": "^5.15.0",
+    "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.14.27",
     "esbuild-jest": "^0.5.0",
     "eslint": "^8.11.0",
