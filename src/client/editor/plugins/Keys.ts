@@ -61,8 +61,18 @@ export default class Keys extends Extension {
               return true;
             }
 
-            // Handle Escape to dismiss completion (without Mod) - ONLY if AI completion exists
-            if (event.key === "Escape" && !isModKey(event) && this.options.onDismissCompletion && hasAICompletion()) {
+            // Handle Escape to dismiss completion (without Mod)
+            // Dismiss if either a completion mark exists or a request is still pending.
+            const hasPendingCompletion =
+              typeof this.options.hasPendingCompletion === "function" &&
+              this.options.hasPendingCompletion();
+
+            if (
+              event.key === "Escape" &&
+              !isModKey(event) &&
+              this.options.onDismissCompletion &&
+              (hasAICompletion() || hasPendingCompletion)
+            ) {
               event.preventDefault();
               this.options.onDismissCompletion();
               return true;
