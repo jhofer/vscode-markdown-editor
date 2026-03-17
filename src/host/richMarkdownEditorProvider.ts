@@ -154,6 +154,23 @@ export class RichMarkdownEditorProvider
   }
 
   /**
+   * Returns true when the document is being opened as part of a diff/comparison
+   * view (e.g. git "Open Changes"). In that case we should not render the rich
+   * markdown editor and instead let VS Code fall back to the plain text editor.
+   */
+  private isInDiffContext(document: vscode.TextDocument): boolean {
+    const uri = document.uri.toString();
+    return vscode.window.tabGroups.all
+      .flatMap((group) => group.tabs)
+      .some(
+        (tab) =>
+          tab.input instanceof vscode.TabInputTextDiff &&
+          (tab.input.modified.toString() === uri ||
+            tab.input.original.toString() === uri),
+      );
+  }
+
+  /**
    * Called when our custom editor is opened.
    */
   public async resolveCustomTextEditor(
@@ -161,6 +178,14 @@ export class RichMarkdownEditorProvider
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken,
   ): Promise<void> {
+    // When VS Code opens a diff/comparison view (e.g. git "Open Changes") it
+    // invokes the custom editor for the file being compared. We don't want the
+    // rich markdown editor inside a diff – fall back to the default text editor.
+    if (this.isInDiffContext(document)) {
+      webviewPanel.dispose();
+      return;
+    }
+
     const documentUri = document.uri.toString();
 
     // Setup initial content for the webview
