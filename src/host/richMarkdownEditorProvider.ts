@@ -72,7 +72,9 @@ export class RichMarkdownEditorProvider
         }
       }
 
-      const documentDir = vscode.Uri.file(path.dirname(ctx.document.uri.fsPath));
+      const documentDir = vscode.Uri.file(
+        path.dirname(ctx.document.uri.fsPath),
+      );
 
       urlLookUp = imageRawUrls.reduce(
         (acc: Record<string, string>, url: string) => {
@@ -91,7 +93,11 @@ export class RichMarkdownEditorProvider
             }
             const src = ctx.webviewPanel.webview.asWebviewUri(onDiskPath);
 
-            logger.logDebug("Image URL mapping:", { original: url, onDisk: onDiskPath.toString(), webview: src?.toString() });
+            logger.logDebug("Image URL mapping:", {
+              original: url,
+              onDisk: onDiskPath.toString(),
+              webview: src?.toString(),
+            });
             acc[url] = src.toString();
             return acc;
           }
@@ -109,7 +115,7 @@ export class RichMarkdownEditorProvider
     if (e.contentChanges.length === 0) {
       return;
     }
-    
+
     // Find the editor context for this document
     const ctx = this.editors.get(e.document.uri.toString());
     if (ctx) {
@@ -156,17 +162,14 @@ export class RichMarkdownEditorProvider
     _token: vscode.CancellationToken,
   ): Promise<void> {
     const documentUri = document.uri.toString();
-    
+
     // Setup initial content for the webview
     webviewPanel.webview.options = {
       enableScripts: true,
     };
-    
-    const messageBroker = new HostMessageBroker(
-      webviewPanel,
-      documentUri
-    );
-    
+
+    const messageBroker = new HostMessageBroker(webviewPanel, documentUri);
+
     // Create and store the editor context
     const ctx: EditorContext = {
       webviewPanel,
@@ -174,10 +177,10 @@ export class RichMarkdownEditorProvider
       messageBroker,
     };
     this.editors.set(documentUri, ctx);
-    
+
     webviewPanel.webview.html = this.getHtmlForWebview(
       webviewPanel.webview,
-      documentUri
+      documentUri,
     );
 
     // Register message handlers
@@ -187,17 +190,14 @@ export class RichMarkdownEditorProvider
         const msg = message as IMessage<string>;
         const markdownText = msg.payload;
         this.updateTextDocument(ctx.document, markdownText);
-      }
+      },
     );
 
     // Register handler for "ready" message
-    messageBroker.registerHandler(
-      readyMessage.requestType,
-      () => {
-        // When the client is ready, send the current markdown content
-        this.updateWebview(ctx);
-      }
-    );
+    messageBroker.registerHandler(readyMessage.requestType, () => {
+      // When the client is ready, send the current markdown content
+      this.updateWebview(ctx);
+    });
 
     // Register handler for image upload
     messageBroker.registerHandler(
@@ -250,7 +250,7 @@ export class RichMarkdownEditorProvider
           logger.logError(e);
           ctx.messageBroker.sendMessage(errorMsg);
         }
-      }
+      },
     );
 
     // Register handler for link clicks
@@ -269,7 +269,7 @@ export class RichMarkdownEditorProvider
         } else {
           vscode.env.openExternal(vscode.Uri.parse(href));
         }
-      }
+      },
     );
 
     // Register handler for link search
@@ -283,7 +283,7 @@ export class RichMarkdownEditorProvider
         logger.logDebug("searchLink result", result);
         const responseMsg = searchLinkMessage.response(result);
         ctx.messageBroker.sendMessage(responseMsg);
-      }
+      },
     );
 
     // Register handler for Copilot completion requests
@@ -292,7 +292,9 @@ export class RichMarkdownEditorProvider
       async (message: unknown) => {
         const msg = message as IMessage<any>;
         try {
-          const suggestions = await this.copilotProvider.getCompletion(msg.payload);
+          const suggestions = await this.copilotProvider.getCompletion(
+            msg.payload,
+          );
           const responseMsg = requestCompletionMessage.response(suggestions);
           ctx.messageBroker.sendMessage(responseMsg);
         } catch (error) {
@@ -300,7 +302,7 @@ export class RichMarkdownEditorProvider
           const errorMsg = requestCompletionMessage.error(String(error));
           ctx.messageBroker.sendMessage(errorMsg);
         }
-      }
+      },
     );
 
     // Register handler for PlantUML rendering
@@ -310,7 +312,7 @@ export class RichMarkdownEditorProvider
         const msg = message as IMessage<{ source: string }>;
         try {
           const imageData = await this.plantUmlRenderer.renderToDataUri(
-            msg.payload.source
+            msg.payload.source,
           );
           const responseMsg = renderPlantUmlMessage.response(imageData);
           ctx.messageBroker.sendMessage(responseMsg);
@@ -319,7 +321,7 @@ export class RichMarkdownEditorProvider
           const errorMsg = renderPlantUmlMessage.error(String(error));
           ctx.messageBroker.sendMessage(errorMsg);
         }
-      }
+      },
     );
 
     // Send init message to the webview
@@ -437,7 +439,7 @@ export class RichMarkdownEditorProvider
    */
   private getHtmlForWebview(
     webview: vscode.Webview,
-    documentUri: string
+    documentUri: string,
   ): string {
     const fontSize = vscode.workspace
       .getConfiguration("inkwell-md")
@@ -469,7 +471,11 @@ export class RichMarkdownEditorProvider
 				Use a content security policy to only allow loading images from https or from our extension directory,
 				and only allow scripts that have a specific nonce.
 				-->
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}';">
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${
+          webview.cspSource
+        } 'unsafe-inline'; img-src ${
+      webview.cspSource
+    } https: data:; script-src 'nonce-${nonce}';">
 
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<title>inkwell.md</title>
@@ -483,14 +489,26 @@ export class RichMarkdownEditorProvider
             font-size: ${fontSize};
           
           }
-         /*  #app {
-            min-height: 100vh;
-          
-          } */
+     
+        #app:empty::after,
+        #app:not(:has(*))::after {
+          content: '';
+        }
+        #app.loading {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          background-color: var(--vscode-editor-background);
+          color: var(--vscode-editor-foreground);
+          font-family: var(--vscode-editor-font-family), var(--inkwell-md-font-family), sans-serif;
+          font-size: 1rem;
+          opacity: 0.5;
+        }
         </style>
 			</head>
 			<body>
-        <main id="app">Loading...</main>
+        <main id="app" class="loading">Loading\u2026</main>
         <script nonce="${nonce}">
           window.__RME_DOCUMENT_URI__ = ${JSON.stringify(documentUri)};
         </script>
