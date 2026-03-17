@@ -1,4 +1,5 @@
-import refractor from "refractor/core";
+import { refractor } from "refractor/core";
+import type { RootContent } from "hast";
 import flattenDeep from "lodash/flattenDeep";
 import { Plugin, PluginKey, Transaction } from "prosemirror-state";
 import { Node } from "prosemirror-model";
@@ -42,7 +43,7 @@ function getDecorations({ doc, name }: { doc: Node; name: string }) {
   );
 
   function parseNodes(
-    nodes: refractor.RefractorNode[],
+    nodes: RootContent[],
     classNames: string[] = []
   ): any {
     return nodes.map(node => {
@@ -67,7 +68,7 @@ function getDecorations({ doc, name }: { doc: Node; name: string }) {
 
     if (!cache[block.pos] || !cache[block.pos].node.eq(block.node)) {
       const nodes = refractor.highlight(block.node.textContent, language);
-      const _decorations = flattenDeep(parseNodes(nodes))
+      const _decorations = flattenDeep(parseNodes(nodes.children))
         .map((node: ParsedNode) => {
           const from = startPos;
           const to = from + node.text.length;
