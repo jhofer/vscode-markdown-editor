@@ -71,13 +71,13 @@
     "watch-extension": "npm run esbuild-extension -- --watch",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "jest",
-    "package": "vsce package --no-dependencies",
-    "publish:latest": "vsce publish --pre-release --no-dependencies",
-    "publish:patch": "vsce publish patch --pre-release --no-dependencies",
-    "publish:minor": "vsce publish minor --pre-release --no-dependencies",
-    "publish:major": "vsce publish major --pre-release --no-dependencies",
-    "publish:preview": "vsce publish --pre-release --no-dependencies",
-    "publish:fast": "npm version patch && npm run build  && vsce publish --pre-release --no-dependencies"
+    "package": "npm run prepare:plantuml-assets && vsce package --no-dependencies",
+    "publish:latest": "npm run prepare:plantuml-assets && vsce publish --pre-release --no-dependencies",
+    "publish:patch": "npm run prepare:plantuml-assets && vsce publish patch --pre-release --no-dependencies",
+    "publish:minor": "npm run prepare:plantuml-assets && vsce publish minor --pre-release --no-dependencies",
+    "publish:major": "npm run prepare:plantuml-assets && vsce publish major --pre-release --no-dependencies",
+    "publish:preview": "npm run prepare:plantuml-assets && vsce publish --pre-release --no-dependencies",
+    "publish:fast": "npm version patch && npm run prepare:plantuml-assets && npm run build && vsce publish --pre-release --no-dependencies"
   },
   "devDependencies": {
     "@swc/core": "^1.15.18",

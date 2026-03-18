@@ -5,6 +5,7 @@ const path = require("path");
 const repoRoot = path.resolve(__dirname, "..");
 const vendorDir = path.join(repoRoot, "vendor");
 const jarPath = path.join(vendorDir, "plantuml.jar");
+const tempJarPath = path.join(vendorDir, "plantuml.jar.download");
 
 // PlantUML v1.2024.8 – the last release that supports Java 8.
 // Later versions require Java 11+.
@@ -53,16 +54,20 @@ async function main() {
     console.log("Removed obsolete nail/ directory");
   }
 
-  // Skip download if JAR already exists
-  if (fs.existsSync(jarPath)) {
-    console.log(`PlantUML JAR already exists at ${jarPath}, skipping download.`);
-    console.log("Delete vendor/plantuml.jar to force re-download.");
-    return;
+  // Always refresh to the pinned version so marketplace builds cannot accidentally
+  // ship an older stale JAR from a previous release.
+  if (fs.existsSync(tempJarPath)) {
+    fs.rmSync(tempJarPath, { force: true });
   }
 
   console.log(`Downloading PlantUML JAR from ${PLANTUML_JAR_URL}...`);
-  await download(PLANTUML_JAR_URL, jarPath);
-  console.log(`Downloaded PlantUML JAR to ${jarPath}`);
+  await download(PLANTUML_JAR_URL, tempJarPath);
+
+  // Atomically replace the target as best-effort on each platform.
+  fs.rmSync(jarPath, { force: true });
+  fs.renameSync(tempJarPath, jarPath);
+
+  console.log(`Prepared PlantUML JAR at ${jarPath}`);
 }
 
 main().catch((err) => {

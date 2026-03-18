@@ -45,8 +45,8 @@ export class PlantUmlRenderer {
         "utf-8",
       ]);
 
-      const stdout: Buffer[] = [];
-      const stderr: Buffer[] = [];
+      const stdout: Uint8Array[] = [];
+      const stderr: Uint8Array[] = [];
 
       proc.stdout.on("data", (chunk) => stdout.push(chunk));
       proc.stderr.on("data", (chunk) => stderr.push(chunk));
