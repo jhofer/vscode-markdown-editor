@@ -1,7 +1,7 @@
 {
   "name": "inkwell-md",
   "displayName": "inkwell.md",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "Edit markdown files in preview mode with a rich text editor",
   "categories": [
     "Formatters",
