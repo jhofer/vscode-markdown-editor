@@ -14,7 +14,8 @@ export default function plantumlRule(md): void {
       const max = state.eMarks[startLine];
       const firstLine = state.src.slice(pos, max).trim();
 
-      if (!firstLine.startsWith("@startuml")) return false;
+      // Allow an optional leading backslash (markdown escape) before @startuml
+      if (!firstLine.startsWith("@startuml") && !firstLine.startsWith("\\@startuml")) return false;
 
       if (silent) return true;
 
@@ -26,7 +27,7 @@ export default function plantumlRule(md): void {
         const lineEnd = state.eMarks[nextLine];
         const lineContent = state.src.slice(lineStart, lineEnd).trim();
 
-        if (lineContent === "@enduml") {
+        if (lineContent === "@enduml" || lineContent === "\\@enduml") {
           found = true;
           break;
         }
