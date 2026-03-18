@@ -1,6 +1,7 @@
 # INKWELL.MD
 
 \
+
 - [ ] Create an extension
 - [ ] Publish it to marketplace
 - [ ] Update documentation
@@ -14,11 +15,12 @@
 | adsf | adsf | asdf |
 |    |    | ddd |
 
+```plantuml
 @startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 ' vscode-style
 ' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
 
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 Person(personAlias, "Label", "Optional Description")
 Container(containerAlias, "Label", "Technology", "Optional Description")
@@ -27,5 +29,6 @@ System(systemAlias, "Label", "Optional Description")
 
 Rel(personAlias, containerAlias, "Label", "Optional Technology")
 @enduml
+```
 
 \

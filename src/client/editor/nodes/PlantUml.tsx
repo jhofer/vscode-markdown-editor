@@ -694,10 +694,12 @@ export default class PlantUml extends Node {
   };
 
   toMarkdown(state: any, node: any) {
+    state.write("```plantuml\n");
     state.write("@startuml\n");
     state.text(node.textContent, false);
     state.ensureNewLine();
-    state.write("@enduml");
+    state.write("@enduml\n");
+    state.write("```");
     state.closeBlock(node);
   }
 
@@ -712,8 +714,8 @@ export default class PlantUml extends Node {
     };
   }
 
-  inputRules({ type }: any) {
-    return [textblockTypeInputRule(/^@startuml$/, type)];
+  inputRules() {
+    return [];
   }
 
   commands({ type }: any) {
