@@ -163,15 +163,10 @@ export class RichMarkdownEditorProvider
   ): Promise<void> {
     // When VSCode opens a file for comparison (e.g., git diff), the document URI
     // may use a non-file scheme (such as "git:"). In these cases, dispose the
-    // custom editor panel and fall back to the default text editor so that
-    // standard diff/compare functionality is preserved.
+    // custom editor panel so that VSCode's built-in diff view can handle the
+    // comparison using its standard text editors.
     if (document.uri.scheme !== "file") {
       webviewPanel.dispose();
-      await vscode.commands.executeCommand(
-        "vscode.openWith",
-        document.uri,
-        "default",
-      );
       return;
     }
 
