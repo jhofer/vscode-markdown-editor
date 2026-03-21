@@ -161,6 +161,15 @@ export class RichMarkdownEditorProvider
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken,
   ): Promise<void> {
+    // When VSCode opens a file for comparison (e.g., git diff), the document URI
+    // may use a non-file scheme (such as "git:"). In these cases, dispose the
+    // custom editor panel so that VSCode's built-in diff view can handle the
+    // comparison using its standard text editors.
+    if (document.uri.scheme !== "file") {
+      webviewPanel.dispose();
+      return;
+    }
+
     const documentUri = document.uri.toString();
 
     // Setup initial content for the webview
