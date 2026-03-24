@@ -33,12 +33,6 @@ export class RichMarkdownEditorProvider
   private copilotProvider = new CopilotProvider();
   private plantUmlRenderer: PlantUmlRenderer;
 
-  // Guard to prevent infinite recursion when redirecting non-file URIs to a
-  // standard text diff. Tracks git URIs currently being redirected so that a
-  // recursive call for the same URI hits the plain-text fallback instead of
-  // looping. Using a Set per URI allows concurrent diffs of different files.
-  private static processingDiffUris = new Set<string>();
-
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new RichMarkdownEditorProvider(context);
     const providerRegistration = vscode.window.registerCustomEditorProvider(
@@ -167,80 +161,12 @@ export class RichMarkdownEditorProvider
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken,
   ): Promise<void> {
-    // Non-file URIs (e.g. git: scheme) are used for historical file versions in
-    // diff/compare views. We want to show a standard text diff rather than two
-    // custom editor panels side-by-side (which would have no diff highlighting).
+    // The custom editor is registered with priority "option", so it is only
+    // opened when explicitly requested (e.g. via "Open With" or the auto-switch
+    // in extension.ts for regular file: opens). Non-file URIs (git:, etc.) are
+    // therefore not expected here, but guard defensively just in case.
     if (document.uri.scheme !== "file") {
-      const uriKey = document.uri.toString();
-      if (!RichMarkdownEditorProvider.processingDiffUris.has(uriKey)) {
-        // First time in for this URI: try to redirect to a proper text diff.
-        // The git extension encodes the working-copy path in the URI query as
-        // JSON: { "path": "/absolute/path/to/file.md", "ref": "..." }
-        let fileUri: vscode.Uri | undefined;
-        let ref: string | undefined;
-        try {
-          const query = JSON.parse(document.uri.query);
-          if (query.path) {
-            fileUri = vscode.Uri.file(query.path);
-          }
-          ref = query.ref;
-        } catch {
-          // Unable to parse the query; fall through to plain-text fallback.
-          logger.logDebug(
-            "resolveCustomTextEditor: could not parse URI query for non-file scheme",
-            { uri: document.uri.toString() },
-          );
-        }
-
-        if (fileUri) {
-          const label = ref
-            ? `${path.basename(fileUri.fsPath)} (${ref})`
-            : path.basename(fileUri.fsPath);
-          webviewPanel.dispose();
-          RichMarkdownEditorProvider.processingDiffUris.add(uriKey);
-          try {
-            await vscode.commands.executeCommand(
-              "vscode.diff",
-              document.uri,
-              fileUri,
-              label,
-            );
-          } finally {
-            RichMarkdownEditorProvider.processingDiffUris.delete(uriKey);
-          }
-          return;
-        }
-      }
-
-      // Fallback (recursion guard triggered, or query could not be parsed):
-      // render the document text as a read-only plain-text view so the diff
-      // panel stays open and the user can still see the historical content.
-      webviewPanel.webview.options = { enableScripts: false };
-      const escapedText = document
-        .getText()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-      webviewPanel.webview.html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none';">
-  <style>
-    body {
-      font-family: var(--vscode-editor-font-family, monospace);
-      font-size: var(--vscode-editor-font-size, 14px);
-      color: var(--vscode-editor-foreground);
-      background: var(--vscode-editor-background);
-      margin: 0;
-      padding: 8px;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-  </style>
-</head>
-<body>${escapedText}</body>
-</html>`;
+      webviewPanel.dispose();
       return;
     }
 
