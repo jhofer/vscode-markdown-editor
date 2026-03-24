@@ -37,6 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
         const uriStr = doc.uri.toString();
         if (!pendingCustomEditorOpens.has(uriStr)) {
           pendingCustomEditorOpens.add(uriStr);
+          const textTab = activeTab;
           vscode.commands
             .executeCommand(
               "vscode.openWith",
@@ -44,7 +45,12 @@ export function activate(context: vscode.ExtensionContext) {
               RichMarkdownEditorProvider.viewType,
             )
             .then(
-              () => pendingCustomEditorOpens.delete(uriStr),
+              () => {
+                pendingCustomEditorOpens.delete(uriStr);
+                // Close the now-redundant plain-text tab so the file doesn't
+                // appear open in two tabs simultaneously.
+                vscode.window.tabGroups.close(textTab);
+              },
               () => pendingCustomEditorOpens.delete(uriStr),
             );
         }
