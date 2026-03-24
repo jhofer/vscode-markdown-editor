@@ -152,3 +152,23 @@ test("renders ordered list", () => {
 2. item two`)
   ).toMatchSnapshot();
 });
+
+test("renders hardbreaks as separate paragraphs", () => {
+  // Two trailing spaces create hardbreaks in markdown
+  expect(
+    renderToHtml(`**Status:** Refinement  \n**Type:** User Story  \n**Assigned:** Thomas`)
+  ).toMatchSnapshot();
+});
+
+test("renders backslash line breaks as separate paragraphs", () => {
+  expect(
+    renderToHtml(`line one\\\nline two\\\nline three`)
+  ).toMatchSnapshot();
+});
+
+test("renders softbreaks as separate paragraphs", () => {
+  // Single newlines without trailing spaces (softbreaks)
+  expect(
+    renderToHtml(`**a**: addd\n**a**: addd\n**a**: addd\n**a**: addd`)
+  ).toMatchSnapshot();
+});
