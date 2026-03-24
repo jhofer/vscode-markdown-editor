@@ -165,3 +165,10 @@ test("renders backslash line breaks as separate paragraphs", () => {
     renderToHtml(`line one\\\nline two\\\nline three`)
   ).toMatchSnapshot();
 });
+
+test("renders softbreaks as separate paragraphs", () => {
+  // Single newlines without trailing spaces (softbreaks)
+  expect(
+    renderToHtml(`**a**: addd\n**a**: addd\n**a**: addd\n**a**: addd`)
+  ).toMatchSnapshot();
+});

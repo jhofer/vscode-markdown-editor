@@ -1,9 +1,10 @@
 import MarkdownIt from "markdown-it";
 import Token from "markdown-it/lib/token";
 
-function isHardbreak(token: Token) {
+function isBreak(token: Token) {
   return (
     token.type === "hardbreak" ||
+    token.type === "softbreak" ||
     (token.type === "text" && token.content === "\\")
   );
 }
@@ -17,7 +18,7 @@ export default function markdownBreakToParagraphs(md: MarkdownIt) {
     // work backwards through the tokens and find text that looks like a br
     for (let i = tokens.length - 1; i > 0; i--) {
       const tokenChildren = tokens[i].children || [];
-      const matches = tokenChildren.filter(isHardbreak);
+      const matches = tokenChildren.filter(isBreak);
 
       if (matches.length) {
         let token;
@@ -29,7 +30,7 @@ export default function markdownBreakToParagraphs(md: MarkdownIt) {
         let currentGroup: Token[] = [];
 
         for (const child of tokenChildren) {
-          if (isHardbreak(child)) {
+          if (isBreak(child)) {
             groups.push(currentGroup);
             currentGroup = [];
           } else {
