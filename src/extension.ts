@@ -37,7 +37,6 @@ export function activate(context: vscode.ExtensionContext) {
         const uriStr = doc.uri.toString();
         if (!pendingCustomEditorOpens.has(uriStr)) {
           pendingCustomEditorOpens.add(uriStr);
-          const textTab = activeTab;
           vscode.commands
             .executeCommand(
               "vscode.openWith",
@@ -47,9 +46,23 @@ export function activate(context: vscode.ExtensionContext) {
             .then(
               () => {
                 pendingCustomEditorOpens.delete(uriStr);
-                // Close the now-redundant plain-text tab so the file doesn't
-                // appear open in two tabs simultaneously.
-                vscode.window.tabGroups.close(textTab);
+                // After the custom editor opens, close any leftover plain-text
+                // tabs for the same URI (searching all tab groups by URI is
+                // more robust than holding a stale tab reference).
+                const textTabsToClose: vscode.Tab[] = [];
+                for (const group of vscode.window.tabGroups.all) {
+                  for (const tab of group.tabs) {
+                    if (
+                      tab.input instanceof vscode.TabInputText &&
+                      tab.input.uri.toString() === uriStr
+                    ) {
+                      textTabsToClose.push(tab);
+                    }
+                  }
+                }
+                if (textTabsToClose.length > 0) {
+                  vscode.window.tabGroups.close(textTabsToClose);
+                }
               },
               () => pendingCustomEditorOpens.delete(uriStr),
             );
