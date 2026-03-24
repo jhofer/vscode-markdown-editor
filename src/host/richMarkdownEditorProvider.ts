@@ -161,6 +161,15 @@ export class RichMarkdownEditorProvider
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken,
   ): Promise<void> {
+    // The custom editor is registered with priority "option", so it is only
+    // opened when explicitly requested (e.g. via "Open With" or the auto-switch
+    // in extension.ts for regular file: opens). Non-file URIs (git:, etc.) are
+    // therefore not expected here, but guard defensively just in case.
+    if (document.uri.scheme !== "file") {
+      webviewPanel.dispose();
+      return;
+    }
+
     const documentUri = document.uri.toString();
 
     // Setup initial content for the webview
