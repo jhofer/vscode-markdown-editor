@@ -37,34 +37,26 @@ export function activate(context: vscode.ExtensionContext) {
         const uriStr = doc.uri.toString();
         if (!pendingCustomEditorOpens.has(uriStr)) {
           pendingCustomEditorOpens.add(uriStr);
-          vscode.commands
-            .executeCommand(
-              "vscode.openWith",
-              doc.uri,
-              RichMarkdownEditorProvider.viewType,
+          // Close the plain-text tab BEFORE opening the custom editor so there
+          // is never a moment where both tabs are simultaneously visible (which
+          // caused the brief flicker). If the custom editor fails to open we
+          // fall back to re-opening as a plain text editor.
+          vscode.window.tabGroups
+            .close(activeTab)
+            .then(() =>
+              vscode.commands.executeCommand(
+                "vscode.openWith",
+                doc.uri,
+                RichMarkdownEditorProvider.viewType,
+              ),
             )
             .then(
+              () => pendingCustomEditorOpens.delete(uriStr),
               () => {
                 pendingCustomEditorOpens.delete(uriStr);
-                // After the custom editor opens, close any leftover plain-text
-                // tabs for the same URI (searching all tab groups by URI is
-                // more robust than holding a stale tab reference).
-                const textTabsToClose: vscode.Tab[] = [];
-                for (const group of vscode.window.tabGroups.all) {
-                  for (const tab of group.tabs) {
-                    if (
-                      tab.input instanceof vscode.TabInputText &&
-                      tab.input.uri.toString() === uriStr
-                    ) {
-                      textTabsToClose.push(tab);
-                    }
-                  }
-                }
-                if (textTabsToClose.length > 0) {
-                  vscode.window.tabGroups.close(textTabsToClose);
-                }
+                // Fallback: re-open as plain text if the custom editor fails.
+                vscode.commands.executeCommand("vscode.open", doc.uri);
               },
-              () => pendingCustomEditorOpens.delete(uriStr),
             );
         }
       }
