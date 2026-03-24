@@ -23,24 +23,36 @@ export default function markdownBreakToParagraphs(md: MarkdownIt) {
         let token;
 
         const nodes: Token[] = [];
-        const children = tokenChildren.filter(child => !isHardbreak(child));
 
-        let count = matches.length;
-        if (!!children.length) count++;
+        // Split children into groups separated by hardbreaks
+        const groups: Token[][] = [];
+        let currentGroup: Token[] = [];
 
-        for (let i = 0; i < count; i++) {
-          const isLast = i === count - 1;
+        for (const child of tokenChildren) {
+          if (isHardbreak(child)) {
+            groups.push(currentGroup);
+            currentGroup = [];
+          } else {
+            currentGroup.push(child);
+          }
+        }
+        groups.push(currentGroup);
 
+        for (const group of groups) {
           token = new Token("paragraph_open", "p", 1);
           nodes.push(token);
 
-          const text = new Token("text", "", 0);
-          text.content = "";
-
           token = new Token("inline", "", 0);
           token.level = 1;
-          token.children = isLast ? [text, ...children] : [text];
-          token.content = "";
+          if (group.length) {
+            token.children = group;
+            token.content = group.map(t => t.content || "").join("");
+          } else {
+            const text = new Token("text", "", 0);
+            text.content = "";
+            token.children = [text];
+            token.content = "";
+          }
           nodes.push(token);
 
           token = new Token("paragraph_close", "p", -1);

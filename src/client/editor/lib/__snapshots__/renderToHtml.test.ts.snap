@@ -1,5 +1,7 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
+exports[`renders backslash line breaks as separate paragraphs 1`] = `"<p>line one</p><p>line two</p><p>line three</p>"`;
+
 exports[`renders blockquote 1`] = `
 "<blockquote>
 <p>blockquote</p>
@@ -37,6 +39,8 @@ exports[`renders code fence 1`] = `
 `;
 
 exports[`renders code marks 1`] = `"<p>this is <code>inline code</code> text</p>"`;
+
+exports[`renders hardbreaks as separate paragraphs 1`] = `"<p><strong>Status:</strong> Refinement</p><p><strong>Type:</strong> User Story</p><p><strong>Assigned:</strong> Thomas</p>"`;
 
 exports[`renders headings 1`] = `
 "<h1>Heading 1</h1>
