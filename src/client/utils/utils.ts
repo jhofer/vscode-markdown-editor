@@ -64,6 +64,35 @@ export function markdownToOutline(markdownText: string) {
   });
 }
 
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+
+/**
+ * Split a markdown string into its YAML frontmatter (including delimiters)
+ * and the remaining body. If no valid frontmatter is found, `frontmatter`
+ * will be an empty string and `body` will be the original text.
+ */
+export function extractFrontmatter(markdown: string): {
+  frontmatter: string;
+  body: string;
+} {
+  const match = FRONTMATTER_RE.exec(markdown);
+  if (!match) return { frontmatter: "", body: markdown };
+  const frontmatter = match[0];
+  const body = markdown.slice(frontmatter.length);
+  return { frontmatter, body };
+}
+
+/**
+ * Prepend stored frontmatter back onto the editor body.
+ */
+export function restoreFrontmatter(
+  frontmatter: string,
+  body: string,
+): string {
+  if (!frontmatter) return body;
+  return frontmatter + body;
+}
+
 export function isBasicallySame(a = "", b = "") {
   // Remove slashes and trailing whitespace, normalize EOL-characters to compare outline and vanilla markdown strings
   return (
