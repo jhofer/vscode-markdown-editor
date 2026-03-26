@@ -7,6 +7,10 @@ export default class HardBreak extends Node {
     return "br";
   }
 
+  get markdownToken() {
+    return "hardbreak";
+  }
+
   get schema() {
     return {
       inline: true,
@@ -33,7 +37,6 @@ export default class HardBreak extends Node {
   keys({ type }) {
     return {
       "Shift-Enter": (state, dispatch) => {
-        if (!isInTable(state)) return false;
         dispatch(state.tr.replaceSelectionWith(type.create()).scrollIntoView());
         return true;
       },
@@ -41,7 +44,7 @@ export default class HardBreak extends Node {
   }
 
   toMarkdown(state) {
-    state.write(" \\n ");
+    state.write("  \n");
   }
 
   parseMarkdown() {

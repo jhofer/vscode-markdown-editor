@@ -58,6 +58,7 @@ import Image from "./nodes/Image";
 import ListItem from "./nodes/ListItem";
 import Notice from "./nodes/Notice";
 import OrderedList from "./nodes/OrderedList";
+import Frontmatter from "./nodes/Frontmatter";
 import PlantUml from "./nodes/PlantUml";
 import Paragraph from "./nodes/Paragraph";
 import Table from "./nodes/Table";
@@ -544,6 +545,10 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             onShowToast: this.props.onShowToast,
           }),
           new CodeFence({
+            dictionary,
+            onShowToast: this.props.onShowToast,
+          }),
+          new Frontmatter({
             dictionary,
             onShowToast: this.props.onShowToast,
           }),

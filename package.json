@@ -64,7 +64,7 @@
     "prepare:plantuml-assets": "node ./scripts/preparePlantumlAssets.js",
     "vscode:prepublish": "npm run prepare:plantuml-assets && npm run build",
     "build": "npm run esbuild-client --  --minify  && npm run esbuild-extension --  --minify ",
-    "build-debug": "npm run prepare:plantuml-assets && npm run esbuild-client && npm run esbuild-extension",
+    "build-debug": "npm run esbuild-client && npm run esbuild-extension",
     "esbuild-extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap --sources-content=true",
     "esbuild-client": "esbuild ./src/client --bundle --outfile=out/client.js --sourcemap=inline --sources-content=true",
     "watch-client": "npm run esbuild-client -- --watch",

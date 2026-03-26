@@ -20,6 +20,7 @@ import Image from "./nodes/Image";
 import ListItem from "./nodes/ListItem";
 import Notice from "./nodes/Notice";
 import OrderedList from "./nodes/OrderedList";
+import Frontmatter from "./nodes/Frontmatter";
 import PlantUml from "./nodes/PlantUml";
 import Paragraph from "./nodes/Paragraph";
 import Table from "./nodes/Table";
@@ -48,6 +49,7 @@ const extensions = new ExtensionManager([
   new BulletList(),
   new CodeBlock(),
   new CodeFence(),
+  new Frontmatter(),
   new PlantUml(),
   new CheckboxList(),
   new CheckboxItem(),

@@ -3,8 +3,6 @@ import {
   debounce,
   formatText,
   isBasicallySame,
-  extractFrontmatter,
-  restoreFrontmatter,
 } from "./utils/utils";
 import { fileToDataUrl } from "../common/fileToDataUrl";
 import { vsCodeTheme } from "./theme";
@@ -60,9 +58,6 @@ export function EditorHost(props: IEditorHostProps) {
   // Track if we're expecting an echo (our own update coming back)
   const pendingUpdateRef = useRef<boolean>(false);
 
-  // Store frontmatter separately so it is not fed into the rich-text parser
-  const frontmatterRef = useRef<string>("");
-
   const messageBroker = useMessageBroker(documentUri, (broker) => {
     //add message handlers
     broker.registerHandler(updateMarkdownMessage, ({ markdownText: incomingMarkdown, urlLookup }) => {
@@ -94,9 +89,9 @@ export function EditorHost(props: IEditorHostProps) {
         return;
       }
       
-      // Strip frontmatter before handing to the rich-text editor
-      const { frontmatter, body } = extractFrontmatter(incomingMarkdown ?? "");
-      frontmatterRef.current = frontmatter;
+      // Pass full markdown (including frontmatter) to the rich-text editor
+      // Frontmatter is rendered as a code block by the Frontmatter node
+      const body = incomingMarkdown ?? "";
 
       // Only update if the content is actually different from current state
       // Use ref to get current value (avoids closure issue)
@@ -127,7 +122,7 @@ export function EditorHost(props: IEditorHostProps) {
     () =>
       debounce((getVal: () => string) => {
         const outlineText = getVal();
-        const fullText = restoreFrontmatter(frontmatterRef.current, outlineText);
+        const fullText = outlineText;
         // Track that we're sending this update so we can ignore the echo
         lastSentMarkdownRef.current = fullText;
         pendingUpdateRef.current = true;
@@ -142,14 +137,11 @@ export function EditorHost(props: IEditorHostProps) {
 
   const handleMarkdownChange = useCallback(
     (value: string) => {
-      // Raw-mode edits include frontmatter, so re-extract it
-      const { frontmatter, body } = extractFrontmatter(value);
-      frontmatterRef.current = frontmatter;
       // Track that we're sending this update so we can ignore the echo
       lastSentMarkdownRef.current = value;
       pendingUpdateRef.current = true;
       messageBroker.sendMessage(updateMarkdownMessage.request(value));
-      setMarkdownText(body);
+      setMarkdownText(value);
     },
     [messageBroker]
   );
@@ -227,11 +219,9 @@ export function EditorHost(props: IEditorHostProps) {
     />
   );
 
-  const fullMarkdown = restoreFrontmatter(frontmatterRef.current, markdownText || "");
-
   const markdownEditor = (
     <CodeMirrorEditor
-      value={fullMarkdown}
+      value={markdownText || ""}
       onChange={handleMarkdownChange}
     />
   );

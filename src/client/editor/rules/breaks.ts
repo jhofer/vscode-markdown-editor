@@ -1,9 +1,9 @@
+
 import MarkdownIt from "markdown-it";
 import Token from "markdown-it/lib/token";
 
 function isBreak(token: Token) {
   return (
-    token.type === "hardbreak" ||
     token.type === "softbreak" ||
     (token.type === "text" && token.content === "\\")
   );
