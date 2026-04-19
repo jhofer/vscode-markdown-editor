@@ -3,11 +3,11 @@ import { DownloadIcon } from "outline-icons";
 import { Plugin, TextSelection, NodeSelection } from "prosemirror-state";
 import { InputRule } from "prosemirror-inputrules";
 import styled from "styled-components";
-import ImageZoom from "react-medium-image-zoom";
 import getDataTransferFiles from "../lib/getDataTransferFiles";
 import uploadPlaceholderPlugin from "../lib/uploadPlaceholder";
 import insertFiles from "../commands/insertFiles";
 import Node from "./Node";
+import ImageViewer from "../components/ImageViewer";
 
 /**
  * Matches following attributes in Markdown-typed image: [, alt, src, class]
@@ -264,10 +264,18 @@ export default class Image extends Node {
     };
 
   component = (props) => {
-    const { theme, isSelected } = props;
+    const { isSelected } = props;
     const { alt, src: rawsrc, title, layoutClass } = props.node.attrs;
     const className = layoutClass ? `image image-${layoutClass}` : "image";
     const src = this.options.onGetImageData(rawsrc);
+    const [viewerOpen, setViewerOpen] = React.useState(false);
+
+    const handleImageClick = (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setViewerOpen(true);
+    };
+
     return (
       <div contentEditable={false} className={className}>
         <ImageWrapper
@@ -280,19 +288,12 @@ export default class Image extends Node {
               onClick={this.handleDownload(props)}
             />
           </Button>
-          <ImageZoom
-            image={{
-              rawsrc,
-              src,
-              alt,
-              title,
-            }}
-            defaultStyles={{
-              overlay: {
-                backgroundColor: theme.background,
-              },
-            }}
-            shouldRespectMaxDimension
+          <img
+            src={src}
+            alt={alt}
+            title={title}
+            onClick={handleImageClick}
+            style={{ cursor: "zoom-in", maxWidth: "100%", display: "block" }}
           />
         </ImageWrapper>
         <Caption
@@ -307,6 +308,13 @@ export default class Image extends Node {
         >
           {alt}
         </Caption>
+        {viewerOpen && (
+          <ImageViewer
+            src={src}
+            alt={alt}
+            onClose={() => setViewerOpen(false)}
+          />
+        )}
       </div>
     );
   };

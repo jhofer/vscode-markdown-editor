@@ -6,6 +6,7 @@ import { basicSetup, EditorView as CMView } from "codemirror";
 import { EditorState as CMState } from "@codemirror/state";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
+import ImageViewer from "../components/ImageViewer";
 
 const DEFAULT_DIAGRAM = `' vscode-style
 ' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
@@ -564,6 +565,8 @@ const PlantUmlView: React.FC<Props> = ({
     [getPos, view]
   );
 
+  const [viewerOpen, setViewerOpen] = React.useState(false);
+
   const handleSelect = React.useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
@@ -578,6 +581,30 @@ const PlantUmlView: React.FC<Props> = ({
       view.dispatch(transaction);
     },
     [getPos, view]
+  );
+
+  const handleDiagramClick = React.useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (imageData) {
+        setViewerOpen(true);
+      }
+    },
+    [imageData]
+  );
+
+  const handleDiagramDoubleClick = React.useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!view || !isEditable) return;
+      const pos = getPos();
+      const $pos = view.state.doc.resolve(pos);
+      const transaction = view.state.tr.setSelection(new NodeSelection($pos));
+      view.dispatch(transaction);
+    },
+    [getPos, view, isEditable]
   );
 
   if (isSelected && isEditable) {
@@ -621,10 +648,15 @@ const PlantUmlView: React.FC<Props> = ({
   }
 
   return (
-    <div onMouseDown={handleSelect}>
-      <DiagramContainer>
+    <div>
+      <DiagramContainer
+        onClick={handleDiagramClick}
+        onDoubleClick={handleDiagramDoubleClick}
+        style={{ cursor: imageData ? "zoom-in" : "default" }}
+        title={isEditable ? "Click to view · Double-click to edit" : undefined}
+      >
         {renderError || imageLoadError || !imageData ? (
-          <FallbackPre>{previewSource}</FallbackPre>
+          <FallbackPre onDoubleClick={handleDiagramDoubleClick}>{previewSource}</FallbackPre>
         ) : (
           <DiagramImage
             $whiteBackground={!isThemedStyle}
@@ -636,6 +668,13 @@ const PlantUmlView: React.FC<Props> = ({
           />
         )}
       </DiagramContainer>
+      {viewerOpen && (
+        <ImageViewer
+          src={imageData}
+          alt="PlantUML diagram"
+          onClose={() => setViewerOpen(false)}
+        />
+      )}
     </div>
   );
 };
