@@ -653,7 +653,7 @@ const PlantUmlView: React.FC<Props> = ({
         onClick={handleDiagramClick}
         onDoubleClick={handleDiagramDoubleClick}
         style={{ cursor: imageData ? "zoom-in" : "default" }}
-        title={isEditable ? "Click to view · Double-click to edit" : undefined}
+        title={imageData ? (isEditable ? "Click to view · Double-click to edit" : "Click to view") : undefined}
       >
         {renderError || imageLoadError || !imageData ? (
           <FallbackPre onDoubleClick={handleDiagramDoubleClick}>{previewSource}</FallbackPre>
