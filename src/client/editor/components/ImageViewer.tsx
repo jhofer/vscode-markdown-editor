@@ -15,6 +15,7 @@ const ZOOM_STEP = 0.15;
 const ImageViewer: React.FC<Props> = ({ src, alt, onClose }) => {
   const [scale, setScale] = React.useState(1);
   const [translate, setTranslate] = React.useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = React.useState(false);
   const isDragging = React.useRef(false);
   const dragStart = React.useRef({ x: 0, y: 0 });
   const translateRef = React.useRef(translate);
@@ -34,6 +35,7 @@ const ImageViewer: React.FC<Props> = ({ src, alt, onClose }) => {
     if (e.button !== 0) return;
     e.preventDefault();
     isDragging.current = true;
+    setDragging(true);
     dragStart.current = {
       x: e.clientX - translateRef.current.x,
       y: e.clientY - translateRef.current.y,
@@ -51,6 +53,7 @@ const ImageViewer: React.FC<Props> = ({ src, alt, onClose }) => {
 
   const handleMouseUp = React.useCallback(() => {
     isDragging.current = false;
+    setDragging(false);
   }, []);
 
   const handleOverlayClick = React.useCallback(
@@ -84,7 +87,7 @@ const ImageViewer: React.FC<Props> = ({ src, alt, onClose }) => {
         onMouseDown={handleMouseDown}
         style={{
           transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
-          cursor: isDragging.current ? "grabbing" : "grab",
+          cursor: dragging ? "grabbing" : "grab",
         }}
         draggable={false}
       >
