@@ -4,6 +4,11 @@ const requestType = "renderPlantUml-request";
 const responseType = "renderPlantUml-response";
 const errorType = "renderPlantUml-error";
 
+export type PlantUmlRenderResponsePayload = {
+  imageData: string;
+  mimeType: "image/svg+xml";
+};
+
 const renderPlantUmlRequest = (source: string) => ({
   type: requestType,
   payload: {
@@ -11,10 +16,14 @@ const renderPlantUmlRequest = (source: string) => ({
   },
 });
 
-const renderPlantUmlResponse = (imageData: string) => ({
+const renderPlantUmlResponse = (
+  imageData: string,
+  mimeType: "image/svg+xml" = "image/svg+xml"
+) => ({
   type: responseType,
   payload: {
     imageData,
+    mimeType,
   },
 });
 
