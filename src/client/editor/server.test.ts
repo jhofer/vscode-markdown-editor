@@ -1,4 +1,10 @@
 import { parser, serializer } from "./server";
+import {
+  decodeSvgDataUri,
+  isSvgImageSource,
+} from "./components/ViewerImage";
+import { createDeferredClickHandlers } from "./components/DoubleClickableDiv";
+import { renderPlantUmlMessage } from "../../common/messages/renderPlantUml";
 
 test("renders an empty doc", () => {
   const ast = parser.parse("");
@@ -193,4 +199,60 @@ Alice -> Bob: Hello
   const plantumlNode = json.content.find((n: any) => n.type === "plantuml");
   expect(plantumlNode).toBeDefined();
   expect(plantumlNode.content[0].text).toBe("Alice -> Bob: Hello");
+});
+
+test("plantuml nodes remain parseable in legacy escaped format", () => {
+  const md = `\\@startuml
+Alice -> Bob: Hello
+\\@enduml`;
+  const ast = parser.parse(md);
+  const json = ast.toJSON();
+  const plantumlNode = json.content.find((n: any) => n.type === "plantuml");
+  expect(plantumlNode).toBeDefined();
+  expect(plantumlNode.content[0].text).toBe("Alice -> Bob: Hello");
+});
+
+test("detects svg image sources for scalable viewing", () => {
+  expect(isSvgImageSource("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")).toBe(
+    true
+  );
+  expect(isSvgImageSource("https://example.com/diagram.svg?raw=1")).toBe(true);
+  expect(isSvgImageSource("/images/diagram.png")).toBe(false);
+});
+
+test("decodes svg data uris for inline rendering", () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>Hello</text></svg>';
+  const encoded = Buffer.from(svg, "utf8").toString("base64");
+
+  expect(decodeSvgDataUri(`data:image/svg+xml;base64,${encoded}`)).toBe(svg);
+});
+
+test("plantuml responses explicitly declare svg mime type", () => {
+  const response = renderPlantUmlMessage.response(
+    "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+    "image/svg+xml"
+  );
+
+  expect(response.payload.imageData).toContain("data:image/svg+xml;base64,");
+  expect(response.payload.mimeType).toBe("image/svg+xml");
+});
+
+test("single click is canceled when double click fires", () => {
+  jest.useFakeTimers();
+
+  const onSingleClick = jest.fn();
+  const onDoubleClick = jest.fn();
+  const { handleClick, handleDoubleClick } = createDeferredClickHandlers(
+    onSingleClick,
+    onDoubleClick
+  );
+
+  handleClick();
+  handleDoubleClick();
+  jest.runAllTimers();
+
+  expect(onSingleClick).not.toHaveBeenCalled();
+  expect(onDoubleClick).toHaveBeenCalledTimes(1);
+
+  jest.useRealTimers();
 });

@@ -6,6 +6,7 @@ import { basicSetup, EditorView as CMView } from "codemirror";
 import { EditorState as CMState } from "@codemirror/state";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
+import DoubleClickableDiv from "../components/DoubleClickableDiv";
 import ImageViewer from "../components/ImageViewer";
 
 const DEFAULT_DIAGRAM = `' vscode-style
@@ -25,6 +26,7 @@ function queuePlantUmlRender<T>(task: () => Promise<T>): Promise<T> {
       .catch(reject);
   });
 }
+
 
 function getCssVar(name: string, fallback: string): string {
   if (typeof window === "undefined" || !window.getComputedStyle) {
@@ -583,29 +585,22 @@ const PlantUmlView: React.FC<Props> = ({
     [getPos, view]
   );
 
-  const handleDiagramClick = React.useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (imageData) {
-        setViewerOpen(true);
-      }
-    },
-    [imageData]
-  );
+  const openViewer = React.useCallback(() => {
+    if (imageData) {
+      setViewerOpen(true);
+    }
+  }, [imageData]);
 
-  const handleDiagramDoubleClick = React.useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (!view || !isEditable) return;
-      const pos = getPos();
-      const $pos = view.state.doc.resolve(pos);
-      const transaction = view.state.tr.setSelection(new NodeSelection($pos));
-      view.dispatch(transaction);
-    },
-    [getPos, view, isEditable]
-  );
+  const enterEditMode = React.useCallback(() => {
+    setViewerOpen(false);
+    if (!view || !isEditable) {
+      return;
+    }
+    const pos = getPos();
+    const $pos = view.state.doc.resolve(pos);
+    const transaction = view.state.tr.setSelection(new NodeSelection($pos));
+    view.dispatch(transaction);
+  }, [getPos, isEditable, view]);
 
   if (isSelected && isEditable) {
     return (
@@ -649,25 +644,34 @@ const PlantUmlView: React.FC<Props> = ({
 
   return (
     <div>
-      <DiagramContainer
-        onClick={handleDiagramClick}
-        onDoubleClick={handleDiagramDoubleClick}
-        style={{ cursor: imageData ? "zoom-in" : "default" }}
-        title={imageData ? (isEditable ? "Click to view · Double-click to edit" : "Click to view") : undefined}
+      <DoubleClickableDiv
+        onSingleClick={openViewer}
+        onDoubleClickAction={enterEditMode}
+        title={
+          isEditable
+            ? imageData
+              ? "Click to view · Double-click to edit"
+              : "Double-click to edit"
+            : imageData
+              ? "Click to view"
+              : undefined
+        }
       >
-        {renderError || imageLoadError || !imageData ? (
-          <FallbackPre onDoubleClick={handleDiagramDoubleClick}>{previewSource}</FallbackPre>
-        ) : (
-          <DiagramImage
-            $whiteBackground={!isThemedStyle}
-            src={imageData}
-            alt="PlantUML diagram"
-            onError={() =>
-              setImageLoadError("Rendered image could not be displayed")
-            }
-          />
-        )}
-      </DiagramContainer>
+        <DiagramContainer $clickable={Boolean(imageData)}>
+          {renderError || imageLoadError || !imageData ? (
+            <FallbackPre>{previewSource}</FallbackPre>
+          ) : (
+            <DiagramImage
+              $whiteBackground={!isThemedStyle}
+              src={imageData}
+              alt="PlantUML diagram"
+              onError={() =>
+                setImageLoadError("Rendered image could not be displayed")
+              }
+            />
+          )}
+        </DiagramContainer>
+      </DoubleClickableDiv>
       {viewerOpen && (
         <ImageViewer
           src={imageData}
@@ -841,9 +845,9 @@ const LoadingMessage = styled.p`
   padding: 16px;
 `;
 
-const DiagramContainer = styled.div`
+const DiagramContainer = styled.div<{ $clickable?: boolean }>`
   margin: 8px 0;
-  cursor: default;
+  cursor: ${props => (props.$clickable ? "zoom-in" : "default")};
   user-select: none;
 `;
 

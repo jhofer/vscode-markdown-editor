@@ -323,7 +323,10 @@ export class RichMarkdownEditorProvider
           const imageData = await this.plantUmlRenderer.renderToDataUri(
             msg.payload.source,
           );
-          const responseMsg = renderPlantUmlMessage.response(imageData);
+          const responseMsg = renderPlantUmlMessage.response(
+            imageData,
+            "image/svg+xml"
+          );
           ctx.messageBroker.sendMessage(responseMsg);
         } catch (error) {
           logger.logError(error);

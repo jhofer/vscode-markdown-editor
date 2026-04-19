@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import styled from "styled-components";
+import ViewerImage from "./ViewerImage";
 
 type Props = {
   src: string;
@@ -91,7 +92,7 @@ const ImageViewer: React.FC<Props> = ({ src, alt, onClose }) => {
         }}
         draggable={false}
       >
-        <img src={src} alt={alt || ""} draggable={false} />
+        <ViewerImage src={src} alt={alt || ""} draggable={false} />
       </ImageContainer>
       <CloseButton onClick={onClose} title="Close (Esc)">
         ✕

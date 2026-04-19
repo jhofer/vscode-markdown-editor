@@ -7,6 +7,7 @@ import getDataTransferFiles from "../lib/getDataTransferFiles";
 import uploadPlaceholderPlugin from "../lib/uploadPlaceholder";
 import insertFiles from "../commands/insertFiles";
 import Node from "./Node";
+import DoubleClickableDiv from "../components/DoubleClickableDiv";
 import ImageViewer from "../components/ImageViewer";
 
 /**
@@ -270,11 +271,9 @@ export default class Image extends Node {
     const src = this.options.onGetImageData(rawsrc);
     const [viewerOpen, setViewerOpen] = React.useState(false);
 
-    const handleImageClick = (event: React.MouseEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
+    const openViewer = React.useCallback(() => {
       setViewerOpen(true);
-    };
+    }, []);
 
     return (
       <div contentEditable={false} className={className}>
@@ -288,13 +287,9 @@ export default class Image extends Node {
               onClick={this.handleDownload(props)}
             />
           </Button>
-          <img
-            src={src}
-            alt={alt}
-            title={title}
-            onClick={handleImageClick}
-            style={{ cursor: "zoom-in", maxWidth: "100%", display: "block" }}
-          />
+          <DoubleClickableDiv onSingleClick={openViewer} title="Click to view">
+            <PreviewableImage src={src} alt={alt} title={title} />
+          </DoubleClickableDiv>
         </ImageWrapper>
         <Caption
           onKeyDown={this.handleKeyDown(props)}
@@ -516,6 +511,12 @@ const Caption = styled.p`
     content: attr(data-caption);
     pointer-events: none;
   }
+`;
+
+const PreviewableImage = styled.img`
+  cursor: zoom-in;
+  max-width: 100%;
+  display: block;
 `;
 
 const ImageWrapper = styled.span`

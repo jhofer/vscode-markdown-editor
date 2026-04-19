@@ -158,7 +158,9 @@ export type Props = {
   onCreateLink?: (title: string) => Promise<string>;
   onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onRequestCompletion?: (context: { prefix: string; suffix: string; mdContent: string; cursorPos: number; fileName: string }) => Promise<string[]>;
-  onRenderPlantUml?: (source: string) => Promise<{ imageData: string }>;
+  onRenderPlantUml?: (
+    source: string
+  ) => Promise<{ imageData: string; mimeType: "image/svg+xml" }>;
   onClickLink: (href: string, event: MouseEvent) => void;
   onHoverLink?: (event: MouseEvent) => boolean;
   onClickHashtag?: (tag: string, event: MouseEvent) => void;
