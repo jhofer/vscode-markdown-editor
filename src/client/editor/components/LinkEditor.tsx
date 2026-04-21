@@ -125,17 +125,20 @@ class LinkEditor extends React.Component<Props, State> {
 
     if (href.length === 0) return;
 
+    const isLocalHref =
+      href.startsWith("./") ||
+      href.startsWith("../") ||
+      href.startsWith("/") ||
+      href.startsWith("#") ||
+      href.startsWith("mailto:") ||
+      href.startsWith("file:");
+
     this.discardInputValue = true;
     const { from, to } = this.props;
 
     // Make sure a protocol is added to the beginning of the input if it's
     // likely an absolute URL that was entered without one.
-    if (
-      !isUrl(href) &&
-      !href.startsWith("/") &&
-      !href.startsWith("#") &&
-      !href.startsWith("mailto:")
-    ) {
+    if (!isUrl(href) && !isLocalHref) {
       href = `https://${href}`;
     }
 

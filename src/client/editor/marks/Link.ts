@@ -112,12 +112,19 @@ export default class Link extends Mark {
               return false;
             },
             click: (_view, event: MouseEvent) => {
-              if (event.target instanceof HTMLAnchorElement) {
-                const href =
-                  event.target.href ||
-                  (event.target.parentNode instanceof HTMLAnchorElement
-                    ? event.target.parentNode.href
-                    : "");
+              const target = event.target;
+              const anchor =
+                target instanceof HTMLAnchorElement
+                  ? target
+                  : target instanceof Element
+                    ? target.closest("a")
+                    : null;
+
+              if (anchor instanceof HTMLAnchorElement) {
+                // Keep the original markdown href (relative paths, hashes, etc.)
+                // instead of the browser-resolved absolute URL.
+                const rawHref = anchor.getAttribute("href") || "";
+                const href = rawHref || anchor.href;
 
                 const isHashtag = href.startsWith("#");
                 if (isHashtag && this.options.onClickHashtag) {

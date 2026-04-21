@@ -139,9 +139,11 @@ export class RichMarkdownEditorProvider
   private fileSearchResult(text: string, document: vscode.TextDocument) {
     const workspace = this.getWorkspaceFolder(document);
     const workspaceFolderPath = workspace.uri.fsPath;
+    const documentDir = path.dirname(document.uri.fsPath);
     const files = this.getFiles(workspaceFolderPath)
-      .map((file) => file.replace(workspaceFolderPath, ""))
-      .map((file) => file.replace(/\\/g, "/"));
+      .map((file) => path.relative(documentDir, file))
+      .map((file) => file.replace(/\\/g, "/"))
+      .map((file) => (file.startsWith(".") ? file : `./${file}`));
 
     logger.logDebug("files:");
     logger.logDebug(files);
@@ -389,14 +391,15 @@ export class RichMarkdownEditorProvider
     const workspaceFolder = this.getWorkspaceFolder(document);
     const workspaceFolderPath = workspaceFolder.uri.fsPath;
     let absolutePath: string;
+    const pathOnly = href.split("#")[0].split("?")[0];
 
-    if (href.startsWith("/")) {
+    if (pathOnly.startsWith("/")) {
       // Workspace-relative path (e.g. /docs/page.md)
-      absolutePath = path.join(workspaceFolderPath, href);
+      absolutePath = path.join(workspaceFolderPath, pathOnly.slice(1));
     } else {
       // Document-relative path (e.g. ./other.md or ../sibling/doc.md)
       const documentDir = path.dirname(document.uri.fsPath);
-      absolutePath = path.resolve(documentDir, href);
+      absolutePath = path.resolve(documentDir, pathOnly);
     }
 
     logger.logDebug(`Opening local path: ${absolutePath}`);
