@@ -8,7 +8,7 @@ import uploadPlaceholderPlugin from "../lib/uploadPlaceholder";
 import insertFiles from "../commands/insertFiles";
 import Node from "./Node";
 import DoubleClickableDiv from "../components/DoubleClickableDiv";
-import ImageViewer from "../components/ImageViewer";
+import InlinePanZoomViewer from "../components/InlinePanZoomViewer";
 
 /**
  * Matches following attributes in Markdown-typed image: [, alt, src, class]
@@ -62,7 +62,7 @@ const uploadPlugin = (options) =>
 
           // filter to only include image files
           const files = getDataTransferFiles(event).filter((file) =>
-            /image/i.test(file.type)
+            /image/i.test(file.type),
           );
           if (files.length === 0) {
             return false;
@@ -205,7 +205,7 @@ export default class Image extends Node {
         const { view } = this.editor;
         const $pos = view.state.doc.resolve(getPos() + node.nodeSize);
         view.dispatch(
-          view.state.tr.setSelection(new TextSelection($pos)).split($pos.pos)
+          view.state.tr.setSelection(new TextSelection($pos)).split($pos.pos),
         );
         view.focus();
         return;
@@ -269,11 +269,6 @@ export default class Image extends Node {
     const { alt, src: rawsrc, title, layoutClass } = props.node.attrs;
     const className = layoutClass ? `image image-${layoutClass}` : "image";
     const src = this.options.onGetImageData(rawsrc);
-    const [viewerOpen, setViewerOpen] = React.useState(false);
-
-    const openViewer = React.useCallback(() => {
-      setViewerOpen(true);
-    }, []);
 
     return (
       <div contentEditable={false} className={className}>
@@ -288,7 +283,12 @@ export default class Image extends Node {
             />
           </Button>
           <DoubleClickableDiv onSingleClick={openViewer} title="Click to view">
-            <PreviewableImage src={src} alt={alt} title={title} />
+            <InlinePanZoomViewer
+              src={src}
+              alt={alt || ""}
+              maxWidth={760}
+              maxHeight={460}
+            />
           </DoubleClickableDiv>
         </ImageWrapper>
         <Caption
@@ -303,13 +303,6 @@ export default class Image extends Node {
         >
           {alt}
         </Caption>
-        {viewerOpen && (
-          <ImageViewer
-            src={src}
-            alt={alt}
-            onClose={() => setViewerOpen(false)}
-          />
-        )}
       </div>
     );
   };
@@ -444,7 +437,7 @@ export default class Image extends Node {
               rawsrc,
               alt,
               ...getLayoutAndTitle(matchedTitle),
-            })
+            }),
           );
         }
 
@@ -511,12 +504,6 @@ const Caption = styled.p`
     content: attr(data-caption);
     pointer-events: none;
   }
-`;
-
-const PreviewableImage = styled.img`
-  cursor: zoom-in;
-  max-width: 100%;
-  display: block;
 `;
 
 const ImageWrapper = styled.span`
