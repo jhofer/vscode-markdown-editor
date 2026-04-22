@@ -19,12 +19,12 @@ type Props = {
 
 const DEFAULT_RATIO = 16 / 10;
 
-const buildViewerSettings = (zoomDefault = 1) => ({
+const buildViewerSettings = (zoomDefault = 1, fillHeight = false) => ({
   pan: { enabled: true },
   zoom: {
     enabled: true,
     default: zoomDefault,
-    min: Math.max(0.05, zoomDefault * 0.5),
+    min: Math.max(0.02, zoomDefault * 0.25),
     max: 16,
     mouseWheelStep: 0.2,
     zoomButtonStep: 0.2,
@@ -45,7 +45,7 @@ const buildViewerSettings = (zoomDefault = 1) => ({
     transition: "transform 0.1s ease-out",
   },
   guides: { enabled: false },
-  fillHeight: false,
+  fillHeight,
 });
 
 type ToolbarProps = {
@@ -82,12 +82,13 @@ const Toolbar: React.FC<ToolbarProps> = ({ onFullscreen, onEdit }) => {
 
 type FullscreenToolbarProps = {
   onClose: () => void;
+  container: HTMLElement | null;
 };
 
-const FullscreenToolbar: React.FC<FullscreenToolbarProps> = ({ onClose }) => {
+const FullscreenToolbar: React.FC<FullscreenToolbarProps> = ({ onClose, container }) => {
   const { crop, zoomOut, zoomIn, resetView } = React.useContext(ViewerContext);
 
-  return (
+  const content = (
     <FullscreenControls>
       <ControlButton type="button" onClick={() => zoomOut()} aria-label="Zoom out">
         −
@@ -104,13 +105,14 @@ const FullscreenToolbar: React.FC<FullscreenToolbarProps> = ({ onClose }) => {
       </ControlButton>
     </FullscreenControls>
   );
+
+  return container ? ReactDOM.createPortal(content, container) : null;
 };
 
 type FullscreenViewerProps = {
   src: string;
   alt?: string;
   whiteBackground?: boolean;
-  naturalSize: { width: number; height: number };
   onClose: () => void;
 };
 
@@ -118,9 +120,15 @@ const FullscreenViewer: React.FC<FullscreenViewerProps> = ({
   src,
   alt,
   whiteBackground,
-  naturalSize,
   onClose,
 }) => {
+  const overlayRef = React.useRef<HTMLDivElement | null>(null);
+  const [toolbarContainer, setToolbarContainer] = React.useState<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    setToolbarContainer(overlayRef.current);
+  }, []);
+
   React.useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -140,17 +148,15 @@ const FullscreenViewer: React.FC<FullscreenViewerProps> = ({
       alt={alt || ""}
       draggable={false}
       $whiteBackground={whiteBackground || false}
-      $naturalWidth={Math.max(1, naturalSize.width)}
-      $naturalHeight={Math.max(1, naturalSize.height)}
     />
   );
 
   return ReactDOM.createPortal(
-    <FullscreenOverlay onClick={onClose}>
-      <FullscreenContent onClick={(e) => e.stopPropagation()}>
-        <ViewerProvider settings={buildViewerSettings()}>
+    <FullscreenOverlay ref={overlayRef} onClick={onClose}>
+      <FullscreenContent onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <ViewerProvider settings={buildViewerSettings(1, true)}>
           <Viewer viewportContent={content} minimapContent={content} />
-          <FullscreenToolbar onClose={onClose} />
+          <FullscreenToolbar onClose={onClose} container={toolbarContainer} />
         </ViewerProvider>
       </FullscreenContent>
     </FullscreenOverlay>,
@@ -224,7 +230,6 @@ const InlinePanZoomViewer: React.FC<Props> = ({
           src={src}
           alt={alt}
           whiteBackground={whiteBackground}
-          naturalSize={naturalSize}
           onClose={() => setIsFullscreen(false)}
         />
       )}
@@ -301,6 +306,17 @@ const FullscreenContent = styled.div`
   position: relative;
   width: 100vw;
   height: 100vh;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+
+  > * {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+  }
 `;
 
 const FullscreenControls = styled.div`
@@ -318,13 +334,10 @@ const FullscreenControls = styled.div`
 
 const FullscreenImageElement = styled.img<{
   $whiteBackground: boolean;
-  $naturalWidth: number;
-  $naturalHeight: number;
 }>`
-  width: ${(props) => `${props.$naturalWidth}px`};
-  height: ${(props) => `${props.$naturalHeight}px`};
-  max-width: none;
-  max-height: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   display: block;
   background: ${(props) => (props.$whiteBackground ? "#ffffff" : "transparent")};
 `;
