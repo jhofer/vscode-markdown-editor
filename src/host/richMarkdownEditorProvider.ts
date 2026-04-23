@@ -123,25 +123,26 @@ export class RichMarkdownEditorProvider
     }
   }
 
-  private getFiles(path: string): string[] {
-    const items = fs.readdirSync(path, { withFileTypes: true });
-    const filePaths = [];
-    for (const item of items) {
-      if (item.isDirectory()) {
-        filePaths.push(...this.getFiles(path + "/" + item.name));
-      } else {
-        filePaths.push(path + "/" + item.name);
-      }
-    }
-    return filePaths;
-  }
-
-  private fileSearchResult(text: string, document: vscode.TextDocument) {
+  private async fileSearchResult(
+    text: string,
+    document: vscode.TextDocument,
+  ): Promise<string[]> {
     const workspace = this.getWorkspaceFolder(document);
-    const workspaceFolderPath = workspace.uri.fsPath;
     const documentDir = path.dirname(document.uri.fsPath);
-    const files = this.getFiles(workspaceFolderPath)
-      .map((file) => path.relative(documentDir, file))
+
+    // Exclude common build-output and dependency folders.
+    // vscode.workspace.findFiles also respects the workspace's files.exclude
+    // setting (which honours .gitignore when "Use .gitignore" is enabled).
+    const excludePattern =
+      "{**/node_modules/**,**/.git/**,**/bin/**,**/obj/**,**/dist/**,**/out/**,**/build/**}";
+
+    const uris = await vscode.workspace.findFiles(
+      new vscode.RelativePattern(workspace, "**/*"),
+      excludePattern,
+    );
+
+    const files = uris
+      .map((uri) => path.relative(documentDir, uri.fsPath))
       .map((file) => file.replace(/\\/g, "/"))
       .map((file) => (file.startsWith(".") ? file : `./${file}`));
 
@@ -286,11 +287,11 @@ export class RichMarkdownEditorProvider
     // Register handler for link search
     messageBroker.registerHandler(
       searchLinkMessage.requestType,
-      (message: unknown) => {
+      async (message: unknown) => {
         const msg = message as IMessage<string>;
         const searchTerm = msg.payload;
         logger.logDebug("searchLink", searchTerm);
-        const result = this.fileSearchResult(searchTerm, ctx.document);
+        const result = await this.fileSearchResult(searchTerm, ctx.document);
         logger.logDebug("searchLink result", result);
         const responseMsg = searchLinkMessage.response(result);
         ctx.messageBroker.sendMessage(responseMsg);
