@@ -71,6 +71,7 @@
     "watch-extension": "npm run esbuild-extension -- --watch",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "jest",
+    "update-vsce-login": "vsce login jhofer",
     "package": "npm run prepare:plantuml-assets && vsce package --no-dependencies",
     "publish:latest": "npm run prepare:plantuml-assets && vsce publish --pre-release --no-dependencies",
     "publish:patch": "npm run prepare:plantuml-assets && vsce publish patch --pre-release --no-dependencies",
