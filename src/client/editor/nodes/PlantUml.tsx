@@ -6,8 +6,7 @@ import { basicSetup, EditorView as CMView } from "codemirror";
 import { EditorState as CMState } from "@codemirror/state";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
-import DoubleClickableDiv from "../components/DoubleClickableDiv";
-import ImageViewer from "../components/ImageViewer";
+import InlinePanZoomViewer from "../components/InlinePanZoomViewer";
 
 const DEFAULT_DIAGRAM = `' vscode-style
 ' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
@@ -567,8 +566,6 @@ const PlantUmlView: React.FC<Props> = ({
     [getPos, view]
   );
 
-  const [viewerOpen, setViewerOpen] = React.useState(false);
-
   const handleSelect = React.useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
@@ -585,14 +582,7 @@ const PlantUmlView: React.FC<Props> = ({
     [getPos, view]
   );
 
-  const openViewer = React.useCallback(() => {
-    if (imageData) {
-      setViewerOpen(true);
-    }
-  }, [imageData]);
-
   const enterEditMode = React.useCallback(() => {
-    setViewerOpen(false);
     if (!view || !isEditable) {
       return;
     }
@@ -644,41 +634,20 @@ const PlantUmlView: React.FC<Props> = ({
 
   return (
     <div>
-      <DoubleClickableDiv
-        onSingleClick={openViewer}
-        onDoubleClickAction={enterEditMode}
-        title={
-          isEditable
-            ? imageData
-              ? "Click to view · Double-click to edit"
-              : "Double-click to edit"
-            : imageData
-              ? "Click to view"
-              : undefined
-        }
-      >
-        <DiagramContainer $clickable={Boolean(imageData)}>
-          {renderError || imageLoadError || !imageData ? (
-            <FallbackPre>{previewSource}</FallbackPre>
-          ) : (
-            <DiagramImage
-              $whiteBackground={!isThemedStyle}
-              src={imageData}
-              alt="PlantUML diagram"
-              onError={() =>
-                setImageLoadError("Rendered image could not be displayed")
-              }
-            />
-          )}
-        </DiagramContainer>
-      </DoubleClickableDiv>
-      {viewerOpen && (
-        <ImageViewer
-          src={imageData}
-          alt="PlantUML diagram"
-          onClose={() => setViewerOpen(false)}
-        />
-      )}
+      <DiagramContainer>
+        {renderError || imageLoadError || !imageData ? (
+          <FallbackPre>{previewSource}</FallbackPre>
+        ) : (
+          <InlinePanZoomViewer
+            src={imageData}
+            alt="PlantUML diagram"
+            maxWidth={920}
+            maxHeight={520}
+            whiteBackground={!isThemedStyle}
+            onEdit={isEditable ? enterEditMode : undefined}
+          />
+        )}
+      </DiagramContainer>
     </div>
   );
 };
@@ -845,19 +814,8 @@ const LoadingMessage = styled.p`
   padding: 16px;
 `;
 
-const DiagramContainer = styled.div<{ $clickable?: boolean }>`
+const DiagramContainer = styled.div`
   margin: 8px 0;
-  cursor: ${props => (props.$clickable ? "zoom-in" : "default")};
-  user-select: none;
-`;
-
-const DiagramImage = styled.img<DiagramImageProps>`
-  max-width: 100%;
-  height: auto;
-  display: block;
-  background: ${props => (props.$whiteBackground ? "#ffffff" : "transparent")};
-  padding: ${props => (props.$whiteBackground ? "8px" : "0")};
-  border-radius: ${props => (props.$whiteBackground ? "4px" : "0")};
 `;
 
 const FallbackPre = styled.pre`
