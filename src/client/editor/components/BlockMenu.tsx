@@ -20,7 +20,10 @@ class BlockMenu extends React.Component<BlockMenuProps> {
     const parent = findParentNode(node => !!node)(state.selection);
 
     if (parent) {
-      dispatch(state.tr.insertText("", parent.pos, state.selection.to));
+      // parent.pos is before the node boundary. Start at the first character
+      // inside the current block to avoid pulling the selection into
+      // the previous line.
+      dispatch(state.tr.insertText("", parent.pos + 1, state.selection.to));
     }
   };
 
