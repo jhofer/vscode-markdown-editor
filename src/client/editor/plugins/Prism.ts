@@ -122,8 +122,9 @@ export default function Prism({ name }) {
         const codeBlockChanged =
           transaction.docChanged && [nodeName, previousNodeName].includes(name);
         const ySyncEdit = !!transaction.getMeta("y-sync$");
+        const prismUpdate = !!transaction.getMeta("prism");
 
-        if (!highlighted || codeBlockChanged || ySyncEdit) {
+        if (!highlighted || codeBlockChanged || ySyncEdit || prismUpdate) {
           highlighted = true;
           return getDecorations({ doc: transaction.doc, name });
         }

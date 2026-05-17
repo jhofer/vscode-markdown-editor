@@ -190,7 +190,8 @@ export default class CodeFence extends Node {
         .setSelection(Selection.near(view.state.doc.resolve(result.inside)))
         .setNodeMarkup(result.inside, undefined, {
           language,
-        });
+        })
+        .setMeta("prism", { force: true });
       view.dispatch(transaction);
 
       localStorage?.setItem(PERSISTENCE_KEY, language);
