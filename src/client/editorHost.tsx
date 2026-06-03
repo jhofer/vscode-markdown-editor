@@ -4,6 +4,7 @@ import {
   formatText,
   isBasicallySame,
 } from "./utils/utils";
+import { stripTrailingBlankLines } from "../common/stripTrailingBlankLines";
 import { fileToDataUrl } from "../common/fileToDataUrl";
 import { vsCodeTheme } from "./theme";
 import { SearchResult, toSearchResult } from "./editor/components/LinkEditor";
@@ -122,12 +123,16 @@ export function EditorHost(props: IEditorHostProps) {
     () =>
       debounce((getVal: () => string) => {
         const outlineText = getVal();
-        const fullText = outlineText;
+        // Strip trailing blank lines and empty-paragraph `\` artifacts so
+        // they don't accumulate across saves and don't show up when the user
+        // toggles to the raw markdown view.
+        const fullText = stripTrailingBlankLines(outlineText);
         // Track that we're sending this update so we can ignore the echo
         lastSentMarkdownRef.current = fullText;
         pendingUpdateRef.current = true;
-        // Update the ref to track current content (for comparison)
-        currentMarkdownRef.current = outlineText;
+        // Update the ref to track current content (for comparison and so that
+        // toggling to raw view shows the sanitized text).
+        currentMarkdownRef.current = fullText;
         // Send to backend but DON'T update React state
         // The editor already has this content - updating state would cause re-render and cursor loss
         messageBroker.sendMessage(updateMarkdownMessage.request(fullText));

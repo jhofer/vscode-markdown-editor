@@ -17,6 +17,7 @@ import { requestCompletionMessage } from "../common/messages/requestCompletion";
 import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
 import { CopilotProvider } from "./copilotProvider";
 import { PlantUmlRenderer } from "./plantUmlRenderer";
+import { stripTrailingBlankLines } from "../common/stripTrailingBlankLines";
 
 // Per-document editor context
 interface EditorContext {
@@ -537,13 +538,20 @@ export class RichMarkdownEditorProvider
    * Write out the text to a given document.
    */
   private updateTextDocument(document: vscode.TextDocument, text: string) {
+    const sanitized = stripTrailingBlankLines(text);
+
+    // Skip no-op edits to avoid marking the document dirty unnecessarily.
+    if (sanitized === document.getText()) {
+      return Promise.resolve(true);
+    }
+
     const edit = new vscode.WorkspaceEdit();
 
     // Just replace the entire document every time
     edit.replace(
       document.uri,
       new vscode.Range(0, 0, document.lineCount, 0),
-      text,
+      sanitized,
     );
 
     return vscode.workspace.applyEdit(edit);
