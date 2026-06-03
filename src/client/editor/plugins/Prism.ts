@@ -114,7 +114,7 @@ export default function Prism({ name }) {
     key: new PluginKey("prism"),
     state: {
       init: (_: Plugin, { doc }) => {
-        return DecorationSet.create(doc, []);
+        return getDecorations({ doc, name });
       },
       apply: (transaction: Transaction, decorationSet, oldState, state) => {
         const nodeName = state.selection.$head.parent.type.name;
