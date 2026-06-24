@@ -80,6 +80,7 @@
     "update-vsce-login": "vsce login jhofer",
     "package": "npm run prepare:plantuml-assets && vsce package --no-dependencies",
     "publish:latest": "npm run prepare:plantuml-assets && vsce publish --pre-release --no-dependencies",
+    "publish:release": "npm run prepare:plantuml-assets && vsce publish --no-dependencies",
     "publish:patch": "npm run prepare:plantuml-assets && vsce publish patch --pre-release --no-dependencies",
     "publish:minor": "npm run prepare:plantuml-assets && vsce publish minor --pre-release --no-dependencies",
     "publish:major": "npm run prepare:plantuml-assets && vsce publish major --pre-release --no-dependencies",
