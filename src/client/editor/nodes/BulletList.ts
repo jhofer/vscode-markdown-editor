@@ -9,6 +9,12 @@ export default class BulletList extends Node {
 
   get schema() {
     return {
+      attrs: {
+        // The bullet marker character ("-", "*" or "+"). Preserved from the
+        // source markdown so the parse/serialize round trip is faithful and
+        // opening a file doesn't spuriously mark it as dirty.
+        bullet: { default: "-" },
+      },
       content: "list_item+",
       group: "block",
       parseDOM: [{ tag: "ul" }],
@@ -27,14 +33,21 @@ export default class BulletList extends Node {
   }
 
   inputRules({ type }) {
-    return [wrappingInputRule(/^\s*([-+*])\s$/, type)];
+    // Capture the marker the user typed ("-", "*" or "+") so it is preserved
+    // on serialization instead of being normalized to a fixed character.
+    return [
+      wrappingInputRule(/^\s*([-+*])\s$/, type, match => ({ bullet: match[1] })),
+    ];
   }
 
   toMarkdown(state, node) {
-    state.renderList(node, "  ", () => (node.attrs.bullet || "*") + " ");
+    state.renderList(node, "  ", () => (node.attrs.bullet || "-") + " ");
   }
 
   parseMarkdown() {
-    return { block: "bullet_list" };
+    return {
+      block: "bullet_list",
+      getAttrs: tok => ({ bullet: tok.markup || "-" }),
+    };
   }
 }

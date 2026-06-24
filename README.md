@@ -43,6 +43,37 @@ After installation, ensure these commands are available in your terminal:
 
 If `dot` is not found, add Graphviz `bin` to your `PATH` and reload VS Code.
 
+## Settings
+
+Configure the extension via VS Code settings (`Ctrl+,` / `Cmd+,`, then search for "inkwell"):
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `inkwell-md.fontSize` | `16px` | Base font size used to render markdown. |
+| `inkwell-md.fontFamily` | system UI font stack | Font family used to render markdown. |
+| `inkwell-md.preserveEmptyParagraphs` | `false` | Preserve intentional empty paragraphs (blank lines) when saving. |
+
+### Preserving empty paragraphs
+
+Standard markdown has no way to represent an empty paragraph: any number of
+consecutive blank lines collapses into a single paragraph break when the file is
+re-read. By default this extension follows that convention, so extra blank lines
+you add in the editor are not kept on save.
+
+If you want to keep intentional blank lines between content, enable
+`inkwell-md.preserveEmptyParagraphs`. When enabled, each empty paragraph is saved
+as a backslash (`\`) on its own line so it survives a reload, for example:
+
+```markdown
+Line A
+\
+\
+Line B
+```
+
+Trailing blank lines at the end of the file are still trimmed. **Reopen the
+editor after changing this setting** for it to take effect.
+
 ## Credits
 
 This project is based on [Rich Markdown Editor VSC](https://github.com/patmood/rich-markdown-editor-vsc) by [@patmood](https://github.com/patmood). We're grateful for their excellent work in bringing rich markdown editing to VS Code.

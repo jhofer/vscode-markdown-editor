@@ -49,6 +49,12 @@
         "markdownDescription": "Font family for rendering markdown",
         "default": "-apple-system, system-ui, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif",
         "scope": "window"
+      },
+      "inkwell-md.preserveEmptyParagraphs": {
+        "type": "boolean",
+        "markdownDescription": "Preserve intentional empty paragraphs (blank lines) when saving by writing a backslash (`\\`) on each empty line. When disabled, consecutive blank lines collapse into a single paragraph break, keeping the markdown clean. Reopen the editor for a change to take effect.",
+        "default": false,
+        "scope": "window"
       }
     }
   },

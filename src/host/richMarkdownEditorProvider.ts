@@ -466,6 +466,10 @@ export class RichMarkdownEditorProvider
       .getConfiguration("inkwell-md")
       .get("fontFamily", DEFAULT_FONT_FAMILY);
 
+    const preserveEmptyParagraphs = vscode.workspace
+      .getConfiguration("inkwell-md")
+      .get("preserveEmptyParagraphs", false);
+
     // Local path to script and css for the webview
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, "out", "client.js"),
@@ -528,6 +532,9 @@ export class RichMarkdownEditorProvider
         <main id="app" class="loading">Loading\u2026</main>
         <script nonce="${nonce}">
           window.__RME_DOCUMENT_URI__ = ${JSON.stringify(documentUri)};
+          window.__RME_PRESERVE_EMPTY_PARAGRAPHS__ = ${JSON.stringify(
+            preserveEmptyParagraphs === true,
+          )};
         </script>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
