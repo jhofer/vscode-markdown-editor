@@ -57,8 +57,7 @@ export class RichMarkdownEditorProvider
   private updateWebview(ctx: EditorContext) {
     const markdown = ctx.document.getText();
 
-    const workspace = this.getWorkspaceFolder(ctx.document);
-    const workspaceFolderPath = workspace.uri;
+    const rootFolderPath = vscode.Uri.file(this.getPathRootFolder(ctx.document));
 
     // create an array of all urls of the image tags
     let urlLookUp: Record<string, string> = {};
@@ -85,9 +84,10 @@ export class RichMarkdownEditorProvider
           } else {
             let onDiskPath: vscode.Uri;
             if (url.startsWith("/")) {
-              // Workspace-relative path (leading '/' means relative to workspace root)
+              // Workspace-relative path (leading '/' means relative to the git repository
+              // root, or the workspace root if the document isn't part of a git repository)
               const cleanUrl = url.substring(1);
-              onDiskPath = vscode.Uri.joinPath(workspaceFolderPath, cleanUrl);
+              onDiskPath = vscode.Uri.joinPath(rootFolderPath, cleanUrl);
             } else {
               // Document-relative path (resolve against the containing file's directory)
               onDiskPath = vscode.Uri.joinPath(documentDir, url);
@@ -238,17 +238,16 @@ export class RichMarkdownEditorProvider
           );
           const fileName = `${fileNameWithoutExtension}-${timestamp}.${ext}`;
 
-          const workspace = this.getWorkspaceFolder(ctx.document);
-          const workspaceFolderPath = workspace.uri.fsPath;
+          const rootFolderPath = this.getPathRootFolder(ctx.document);
           const imagesFolder = "images";
 
-          const imageFolderPath = path.join(workspaceFolderPath, imagesFolder);
+          const imageFolderPath = path.join(rootFolderPath, imagesFolder);
           if (!fs.existsSync(imageFolderPath)) {
             fs.mkdirSync(imageFolderPath);
           }
           const filePath = path.join(imageFolderPath, fileName);
           fs.writeFileSync(filePath, buffer);
-          const relativePath = path.relative(workspaceFolderPath, filePath);
+          const relativePath = path.relative(rootFolderPath, filePath);
 
           const rawsrc = `/${relativePath.replace(/\\/g, "/")}`;
           const src = ctx.webviewPanel.webview
@@ -385,19 +384,62 @@ export class RichMarkdownEditorProvider
   }
 
   /**
+   * Walk up from the document's location looking for a ".git" entry (a directory
+   * for a normal repository, or a file for a worktree/submodule) and return the
+   * containing folder if found.
+   */
+  private findGitRepositoryRoot(fsPath: string): string | undefined {
+    let currentDir: string;
+    try {
+      currentDir = fs.statSync(fsPath).isDirectory()
+        ? fsPath
+        : path.dirname(fsPath);
+    } catch {
+      currentDir = path.dirname(fsPath);
+    }
+
+    let previousDir: string | undefined;
+    while (currentDir !== previousDir) {
+      if (fs.existsSync(path.join(currentDir, ".git"))) {
+        return currentDir;
+      }
+      previousDir = currentDir;
+      currentDir = path.dirname(currentDir);
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Resolve the root that '/'-prefixed (workspace-relative) links and image paths
+   * are resolved against. Prefers the containing git repository root, since the
+   * opened VS Code workspace folder may be a parent directory of the actual repo
+   * (e.g. when opening a folder that contains the repo as a subfolder or wiki
+   * checkout). Falls back to the VS Code workspace folder if the document isn't
+   * part of a git repository.
+   */
+  private getPathRootFolder(document: vscode.TextDocument): string {
+    const gitRoot = this.findGitRepositoryRoot(document.uri.fsPath);
+    if (gitRoot) {
+      return gitRoot;
+    }
+    return this.getWorkspaceFolder(document).uri.fsPath;
+  }
+
+  /**
    * Open a local file link, resolving paths relative to the document or workspace root.
    * Paths starting with '/' are treated as workspace-relative.
    * All other paths are treated as relative to the containing document's directory.
    */
   private async openLocalPath(href: string, document: vscode.TextDocument) {
-    const workspaceFolder = this.getWorkspaceFolder(document);
-    const workspaceFolderPath = workspaceFolder.uri.fsPath;
+    const rootFolderPath = this.getPathRootFolder(document);
     let absolutePath: string;
     const pathOnly = href.split("#")[0].split("?")[0];
 
     if (pathOnly.startsWith("/")) {
-      // Workspace-relative path (e.g. /docs/page.md)
-      absolutePath = path.join(workspaceFolderPath, pathOnly.slice(1));
+      // Workspace-relative path (e.g. /docs/page.md), resolved against the git
+      // repository root if the document is part of one
+      absolutePath = path.join(rootFolderPath, pathOnly.slice(1));
     } else {
       // Document-relative path (e.g. ./other.md or ../sibling/doc.md)
       const documentDir = path.dirname(document.uri.fsPath);
@@ -423,13 +465,11 @@ export class RichMarkdownEditorProvider
     logger.logDebug(`Opening file: ${fileToOpen}`);
     const currentFile = document.uri.fsPath;
     logger.logDebug(`Current file: ${currentFile}`);
-    // get workspace folder of document
-    const workspaceFolder = this.getWorkspaceFolder(document);
+    // get the root folder ('/'-prefixed paths are relative to this) of the document
+    const rootFolderPath = this.getPathRootFolder(document);
+    logger.logDebug(`Root folder: ${rootFolderPath}`);
 
-    const workspaceFolderPath = workspaceFolder?.uri.fsPath;
-    logger.logDebug(`Workspace folder: ${workspaceFolderPath}`);
-
-    const absolutePath = path.join(workspaceFolderPath, fileToOpen);
+    const absolutePath = path.join(rootFolderPath, fileToOpen);
     // log to extension output
     logger.logDebug(`Opening file: ${absolutePath}`);
     vscode.workspace.openTextDocument(absolutePath).then(
