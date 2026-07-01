@@ -7,7 +7,6 @@ import getDataTransferFiles from "../lib/getDataTransferFiles";
 import uploadPlaceholderPlugin from "../lib/uploadPlaceholder";
 import insertFiles from "../commands/insertFiles";
 import Node from "./Node";
-import DoubleClickableDiv from "../components/DoubleClickableDiv";
 import InlinePanZoomViewer from "../components/InlinePanZoomViewer";
 
 /**
@@ -282,14 +281,12 @@ export default class Image extends Node {
               onClick={this.handleDownload(props)}
             />
           </Button>
-          <DoubleClickableDiv onSingleClick={openViewer} title="Click to view">
-            <InlinePanZoomViewer
-              src={src}
-              alt={alt || ""}
-              maxWidth={760}
-              maxHeight={460}
-            />
-          </DoubleClickableDiv>
+          <InlinePanZoomViewer
+            src={src}
+            alt={alt || ""}
+            maxWidth={760}
+            maxHeight={460}
+          />
         </ImageWrapper>
         <Caption
           onKeyDown={this.handleKeyDown(props)}

@@ -11,3 +11,4 @@ tsconfig.lsif.json
 *.db
 coverage/
 *.vsix
+ZVP.wiki
