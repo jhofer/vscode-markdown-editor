@@ -14,6 +14,11 @@ export class PlantUmlRenderer {
   }
 
   async renderToDataUri(source: string): Promise<string> {
+    const svg = await this.renderToSvg(source);
+    return toDataUri(svg);
+  }
+
+  async renderToSvg(source: string): Promise<string> {
     const trimmed = source.trim();
     if (!trimmed) {
       throw new Error("PlantUML source is empty");
@@ -29,7 +34,7 @@ export class PlantUmlRenderer {
       throw new Error("PlantUML did not produce SVG output");
     }
 
-    return toDataUri(svg);
+    return svg;
   }
 
   private generate(source: string): Promise<string> {
