@@ -1,6 +1,11 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
-import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE } from "./constants";
+import {
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_SIZE,
+  DEFAULT_PLANTUML_ATTACHMENTS_FOLDER,
+  DEFAULT_PLANTUML_EXTERNAL_FILES,
+} from "./constants";
 
 import { getNonce } from "../utils/getNonce";
 import path from "path";
@@ -18,12 +23,29 @@ import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
 import { CopilotProvider } from "./copilotProvider";
 import { PlantUmlRenderer } from "./plantUmlRenderer";
 import { stripTrailingBlankLines } from "../common/stripTrailingBlankLines";
+import { Diagram, extractDiagrams, inlineDiagrams, nameFences } from "../common/plantumlSidecar";
+import {
+  DiagramDocumentLayout,
+  layoutFor,
+  normalizeAttachmentsFolder,
+  readSidecar,
+  writeDiagrams,
+} from "./plantUmlExternalFiles";
 
 // Per-document editor context
 interface EditorContext {
   webviewPanel: vscode.WebviewPanel;
   document: vscode.TextDocument;
   messageBroker: HostMessageBroker;
+  plantumlExternal: boolean;
+  diagramLayout?: DiagramDocumentLayout;
+  // Diagrams as currently known from the live editor session (kept in sync on
+  // every webview -> doc round trip); used to re-inline diagrams into fences
+  // for the webview and as the payload for the next sidecar write.
+  diagrams: Diagram[];
+  // Diagrams as of the last successful sidecar write; used to skip
+  // re-rendering diagrams whose source hasn't changed since that write.
+  lastWritten: Diagram[];
 }
 
 export class RichMarkdownEditorProvider
@@ -55,7 +77,16 @@ export class RichMarkdownEditorProvider
   };
 
   private updateWebview(ctx: EditorContext) {
-    const markdown = ctx.document.getText();
+    let markdown = ctx.document.getText();
+
+    if (ctx.plantumlExternal && ctx.diagramLayout) {
+      // Assign stable names to any still-unnamed inline fences (migration of
+      // documents not yet externalized), then reconstitute this document's
+      // own externalized diagrams (per the ownership rules) as fences so the
+      // webview always sees inline PlantUML source, never a generated image.
+      markdown = nameFences(markdown, ctx.diagramLayout.baseName);
+      markdown = inlineDiagrams(markdown, ctx.diagrams, ctx.diagramLayout);
+    }
 
     const rootFolderPath = vscode.Uri.file(this.getPathRootFolder(ctx.document));
 
@@ -183,11 +214,38 @@ export class RichMarkdownEditorProvider
 
     const messageBroker = new HostMessageBroker(webviewPanel, documentUri);
 
+    const plantumlExternal = vscode.workspace
+      .getConfiguration("inkwell-md")
+      .get("plantumlExternalFiles", DEFAULT_PLANTUML_EXTERNAL_FILES);
+    const attachmentsFolder = normalizeAttachmentsFolder(
+      vscode.workspace
+        .getConfiguration("inkwell-md")
+        .get("plantumlAttachmentsFolder", DEFAULT_PLANTUML_ATTACHMENTS_FOLDER),
+    );
+
+    let diagramLayout: DiagramDocumentLayout | undefined;
+    let initialDiagrams: Diagram[] = [];
+    if (plantumlExternal) {
+      try {
+        const root = this.getPathRootFolder(document);
+        diagramLayout = layoutFor(document, root, attachmentsFolder);
+        if (diagramLayout) {
+          initialDiagrams = readSidecar(diagramLayout);
+        }
+      } catch (error) {
+        logger.logError(error);
+      }
+    }
+
     // Create and store the editor context
     const ctx: EditorContext = {
       webviewPanel,
       document,
       messageBroker,
+      plantumlExternal: plantumlExternal === true,
+      diagramLayout,
+      diagrams: initialDiagrams,
+      lastWritten: initialDiagrams,
     };
     this.editors.set(documentUri, ctx);
 
@@ -201,7 +259,12 @@ export class RichMarkdownEditorProvider
       updateMarkdownMessage.requestType,
       (message: unknown) => {
         const msg = message as IMessage<string>;
-        const markdownText = msg.payload;
+        let markdownText = msg.payload;
+        if (ctx.plantumlExternal && ctx.diagramLayout) {
+          const extracted = extractDiagrams(markdownText, ctx.diagramLayout);
+          markdownText = extracted.markdown;
+          ctx.diagrams = extracted.diagrams;
+        }
         this.updateTextDocument(ctx.document, markdownText);
       },
     );
@@ -355,6 +418,27 @@ export class RichMarkdownEditorProvider
       this.onDidChangeTextDocument.bind(this),
     );
 
+    // Write the sidecar/SVGs only on save, not on every keystroke.
+    const saveDocumentSubscription = vscode.workspace.onDidSaveTextDocument(
+      (savedDocument) => {
+        if (savedDocument.uri.toString() !== documentUri) {
+          return;
+        }
+        if (!ctx.plantumlExternal || !ctx.diagramLayout) {
+          return;
+        }
+        const layout = ctx.diagramLayout;
+        const diagrams = ctx.diagrams;
+        writeDiagrams(layout, diagrams, ctx.lastWritten, this.plantUmlRenderer)
+          .then(() => {
+            ctx.lastWritten = diagrams;
+          })
+          .catch((error) => {
+            logger.logError(error);
+          });
+      },
+    );
+
     // Handle webview state changes (e.g., when switching tabs)
     const viewStateSubscription = webviewPanel.onDidChangeViewState(() => {
       if (webviewPanel.visible && ctx.messageBroker) {
@@ -369,6 +453,7 @@ export class RichMarkdownEditorProvider
     // Make sure we get rid of the listener when our editor is closed.
     webviewPanel.onDidDispose(() => {
       changeDocumentSubscription.dispose();
+      saveDocumentSubscription.dispose();
       viewStateSubscription.dispose();
       // Remove the editor context from the map
       this.editors.delete(documentUri);
@@ -510,6 +595,16 @@ export class RichMarkdownEditorProvider
       .getConfiguration("inkwell-md")
       .get("preserveEmptyParagraphs", false);
 
+    const plantumlExternal = vscode.workspace
+      .getConfiguration("inkwell-md")
+      .get("plantumlExternalFiles", DEFAULT_PLANTUML_EXTERNAL_FILES);
+
+    const docUri = vscode.Uri.parse(documentUri);
+    const plantumlBaseName = path.basename(
+      docUri.fsPath,
+      path.extname(docUri.fsPath),
+    );
+
     // Local path to script and css for the webview
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, "out", "client.js"),
@@ -574,6 +669,12 @@ export class RichMarkdownEditorProvider
           window.__RME_DOCUMENT_URI__ = ${JSON.stringify(documentUri)};
           window.__RME_PRESERVE_EMPTY_PARAGRAPHS__ = ${JSON.stringify(
             preserveEmptyParagraphs === true,
+          )};
+          window.__RME_PLANTUML_EXTERNAL__ = ${JSON.stringify(
+            plantumlExternal === true,
+          )};
+          window.__RME_PLANTUML_BASENAME__ = ${JSON.stringify(
+            plantumlBaseName,
           )};
         </script>
 				<script nonce="${nonce}" src="${scriptUri}"></script>

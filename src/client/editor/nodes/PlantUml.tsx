@@ -7,6 +7,7 @@ import { EditorState as CMState } from "@codemirror/state";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
 import InlinePanZoomViewer from "../components/InlinePanZoomViewer";
+import { getEditorSettings } from "../lib/editorSettings";
 
 const DEFAULT_DIAGRAM = `' vscode-style
 ' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
@@ -667,7 +668,9 @@ export default class PlantUml extends Node {
 
   get schema() {
     return {
-      attrs: {},
+      attrs: {
+        name: { default: null },
+      },
       content: "text*",
       marks: "",
       group: "block",
@@ -680,12 +683,19 @@ export default class PlantUml extends Node {
           tag: "div.plantuml-block",
           preserveWhitespace: "full",
           contentElement: "pre.plantuml-source",
+          getAttrs: (dom: HTMLElement) => ({
+            name: dom.getAttribute("data-name") || null,
+          }),
         },
       ],
-      toDOM: () => {
+      toDOM: (node: any) => {
+        const attrs: Record<string, string> = {};
+        if (node.attrs.name) {
+          attrs["data-name"] = node.attrs.name;
+        }
         return [
           "div",
-          { class: "plantuml-block" },
+          { class: "plantuml-block", ...attrs },
           ["pre", { class: "plantuml-source" }, 0],
         ];
       },
@@ -707,7 +717,7 @@ export default class PlantUml extends Node {
 
   toMarkdown(state: any, node: any) {
     state.write("```plantuml\n");
-    state.write("@startuml\n");
+    state.write(node.attrs.name ? `@startuml ${node.attrs.name}\n` : "@startuml\n");
     state.text(node.textContent, false);
     state.ensureNewLine();
     state.write("@enduml\n");
@@ -723,6 +733,7 @@ export default class PlantUml extends Node {
     return {
       block: "plantuml",
       noCloseToken: true,
+      getAttrs: (tok: any) => ({ name: tok.meta?.name ?? null }),
     };
   }
 
@@ -736,8 +747,27 @@ export default class PlantUml extends Node {
       const position = selection.$cursor
         ? selection.$cursor.pos
         : selection.$to.pos;
+
+      const attrs: { name: string | null } = { name: null };
+      const { plantumlExternal, plantumlBaseName } = getEditorSettings();
+      if (plantumlExternal) {
+        // Allocate the name up front so the host doesn't rename this diagram
+        // out from under the user on the next save (which would remount the
+        // editor and lose the cursor mid-typing).
+        let maxIndex = 0;
+        state.doc.descendants((n: any) => {
+          if (n.type.name === "plantuml" && typeof n.attrs.name === "string") {
+            const m = /^(.*)-(\d+)$/.exec(n.attrs.name);
+            if (m && m[1] === plantumlBaseName) {
+              maxIndex = Math.max(maxIndex, parseInt(m[2], 10));
+            }
+          }
+        });
+        attrs.name = `${plantumlBaseName}-${maxIndex + 1}`;
+      }
+
       const node = type.create(
-        {},
+        attrs,
         type.schema.text(DEFAULT_DIAGRAM)
       );
       const transaction = state.tr.insert(position, node);

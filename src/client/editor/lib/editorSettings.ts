@@ -10,6 +10,16 @@ export interface EditorSettings {
    * collapse into ordinary paragraph breaks, keeping the markdown clean.
    */
   preserveEmptyParagraphs: boolean;
+  /**
+   * When true, the host stores PlantUML sources in a sidecar `.plantuml`
+   * file and keeps only a generated SVG link in the markdown. Newly inserted
+   * diagrams must therefore be named on insertion (see PlantUml.tsx
+   * commands()) so the host doesn't rename them out from under an
+   * in-progress edit.
+   */
+  plantumlExternal: boolean;
+  /** The markdown document's basename (no extension), used as the name prefix. */
+  plantumlBaseName: string;
 }
 
 export function getEditorSettings(): EditorSettings {
@@ -21,5 +31,10 @@ export function getEditorSettings(): EditorSettings {
   return {
     preserveEmptyParagraphs:
       globals?.__RME_PRESERVE_EMPTY_PARAGRAPHS__ === true,
+    plantumlExternal: globals?.__RME_PLANTUML_EXTERNAL__ === true,
+    plantumlBaseName:
+      typeof globals?.__RME_PLANTUML_BASENAME__ === "string"
+        ? (globals.__RME_PLANTUML_BASENAME__ as string)
+        : "diagram",
   };
 }

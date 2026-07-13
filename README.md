@@ -52,6 +52,8 @@ Configure the extension via VS Code settings (`Ctrl+,` / `Cmd+,`, then search fo
 | `inkwell-md.fontSize` | `16px` | Base font size used to render markdown. |
 | `inkwell-md.fontFamily` | system UI font stack | Font family used to render markdown. |
 | `inkwell-md.preserveEmptyParagraphs` | `false` | Preserve intentional empty paragraphs (blank lines) when saving. |
+| `inkwell-md.plantumlExternalFiles` | `false` | Store PlantUML sources in a `<name>.plantuml` sidecar file and keep only a generated SVG link in the markdown, instead of an inline fenced code block. Reopen the editor for a change to take effect. |
+| `inkwell-md.plantumlAttachmentsFolder` | `.attachments` | Folder (relative to the git repository root, or the workspace folder if the file isn't in a repo) where SVGs generated from external PlantUML files are written. Only used when `plantumlExternalFiles` is enabled. Reopen the editor for a change to take effect. |
 
 ### Preserving empty paragraphs
 
@@ -73,6 +75,50 @@ Line B
 
 Trailing blank lines at the end of the file are still trimmed. **Reopen the
 editor after changing this setting** for it to take effect.
+
+### External PlantUML files
+
+By default, a PlantUML diagram's source lives inline in the markdown as a
+```` ```plantuml ```` fence. Enable `inkwell-md.plantumlExternalFiles` to
+instead store the source in a sidecar `.plantuml` file next to the markdown
+document, and generate a real `.svg` file that's linked from the markdown as a
+normal image. This keeps the markdown clean and lets other renderers (GitHub,
+VS Code's built-in preview, Azure DevOps wiki) show the diagram instead of a
+raw code block. The in-editor experience doesn't change — diagrams are still
+edited inline with a live preview; only where the source and rendered image
+are stored on disk changes, and only on save.
+
+For `docs/architecture.md` with two diagrams, saving produces:
+
+```
+docs/architecture.md          ![architecture-1](/.attachments/docs/architecture/architecture-1.svg)
+                               ![architecture-2](/.attachments/docs/architecture/architecture-2.svg)
+docs/architecture.plantuml     @startuml architecture-1 … @enduml
+                                @startuml architecture-2 … @enduml
+.attachments/docs/architecture/architecture-1.svg
+.attachments/docs/architecture/architecture-2.svg
+```
+
+Diagrams keep a stable name for life (`architecture-1`, `architecture-2`, …,
+gaps allowed), so reordering or deleting a diagram doesn't rewrite unrelated
+links or files. Only the SVGs generated from *this* document's sidecar are
+ever touched: other images referenced by the markdown (pasted screenshots,
+hand-written `![](...)` links) and other files that happen to live in the
+attachments folder are always left alone, even if you point
+`plantumlAttachmentsFolder` at a folder that already holds unrelated content.
+
+Known limitations:
+
+* Renaming or moving the `.md` file does not move its sidecar or attachments.
+* Changing `plantumlAttachmentsFolder` on a repo that already has generated
+  SVGs regenerates them under the new folder on the next save and rewrites
+  the links, but does not clean up the old folder.
+* With the setting turned **off**, a document that was previously
+  externalized shows its diagrams as plain (non-editable) images — turning
+  the setting back on restores inline editing. There's no automatic
+  re-inlining while it's off.
+* If Java is unavailable, the sidecar file and image links are still written,
+  but the SVGs are not generated.
 
 ## Credits
 

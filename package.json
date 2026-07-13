@@ -37,24 +37,39 @@
         "priority": "option"
       }
     ],
-    "properties": {
-      "inkwell-md.fontSize": {
-        "type": "string",
-        "markdownDescription": "Base font size",
-        "default": "16px",
-        "scope": "window"
-      },
-      "inkwell-md.fontFamily": {
-        "type": "string",
-        "markdownDescription": "Font family for rendering markdown",
-        "default": "-apple-system, system-ui, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif",
-        "scope": "window"
-      },
-      "inkwell-md.preserveEmptyParagraphs": {
-        "type": "boolean",
-        "markdownDescription": "Preserve intentional empty paragraphs (blank lines) when saving by writing a backslash (`\\`) on each empty line. When disabled, consecutive blank lines collapse into a single paragraph break, keeping the markdown clean. Reopen the editor for a change to take effect.",
-        "default": false,
-        "scope": "window"
+    "configuration": {
+      "title": "inkwell.md",
+      "properties": {
+        "inkwell-md.fontSize": {
+          "type": "string",
+          "markdownDescription": "Base font size",
+          "default": "16px",
+          "scope": "window"
+        },
+        "inkwell-md.fontFamily": {
+          "type": "string",
+          "markdownDescription": "Font family for rendering markdown",
+          "default": "-apple-system, system-ui, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif",
+          "scope": "window"
+        },
+        "inkwell-md.preserveEmptyParagraphs": {
+          "type": "boolean",
+          "markdownDescription": "Preserve intentional empty paragraphs (blank lines) when saving by writing a backslash (`\\`) on each empty line. When disabled, consecutive blank lines collapse into a single paragraph break, keeping the markdown clean. Reopen the editor for a change to take effect.",
+          "default": false,
+          "scope": "window"
+        },
+        "inkwell-md.plantumlExternalFiles": {
+          "type": "boolean",
+          "markdownDescription": "Store PlantUML sources in a `<name>.plantuml` sidecar file next to the markdown document and keep only a generated SVG image link in the markdown, instead of embedding the PlantUML source as a fenced code block. Reopen the editor for a change to take effect.",
+          "default": false,
+          "scope": "window"
+        },
+        "inkwell-md.plantumlAttachmentsFolder": {
+          "type": "string",
+          "markdownDescription": "Folder (relative to the git repository root, or the workspace folder if the file is not in a repo) where SVGs generated from external PlantUML files are written. Only used when `#inkwell-md.plantumlExternalFiles#` is enabled. Reopen the editor for a change to take effect.",
+          "default": ".attachments",
+          "scope": "window"
+        }
       }
     }
   },
