@@ -325,6 +325,33 @@ export function inlineDiagrams(
 }
 
 /**
+ * Safety net for `extractDiagrams`'s result before it overwrites the
+ * in-memory/sidecar diagram list: never silently drop a previously-known
+ * diagram whose `<name>.svg` is still referenced somewhere in the markdown,
+ * even if `inlineDiagrams`/`extractDiagrams` failed to recognize that
+ * reference as "ours" (e.g. because the link doesn't match this document's
+ * expected diagram-folder path — which can happen for pre-existing content
+ * written by other tooling). A diagram is only dropped when its filename no
+ * longer appears anywhere in the document at all, i.e. it was genuinely
+ * removed.
+ */
+export function mergeDiagrams(
+  previous: Diagram[],
+  extracted: Diagram[],
+  markdown: string,
+): Diagram[] {
+  const extractedNames = new Set(extracted.map((d) => d.name));
+  const preserved = previous.filter((d) => {
+    if (extractedNames.has(d.name)) {
+      return false;
+    }
+    const re = new RegExp(`(^|/)${escapeRegExp(d.name)}\\.svg\\b`, "i");
+    return re.test(markdown);
+  });
+  return [...extracted, ...preserved];
+}
+
+/**
  * Assigns a name to every still-unnamed inline PlantUML block (fenced or
  * legacy bare) without otherwise touching the markdown. Used to migrate
  * existing documents the first time external mode is turned on.

@@ -23,7 +23,13 @@ import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
 import { CopilotProvider } from "./copilotProvider";
 import { PlantUmlRenderer } from "./plantUmlRenderer";
 import { stripTrailingBlankLines } from "../common/stripTrailingBlankLines";
-import { Diagram, extractDiagrams, inlineDiagrams, nameFences } from "../common/plantumlSidecar";
+import {
+  Diagram,
+  extractDiagrams,
+  inlineDiagrams,
+  mergeDiagrams,
+  nameFences,
+} from "../common/plantumlSidecar";
 import {
   DiagramDocumentLayout,
   layoutFor,
@@ -263,7 +269,7 @@ export class RichMarkdownEditorProvider
         if (ctx.plantumlExternal && ctx.diagramLayout) {
           const extracted = extractDiagrams(markdownText, ctx.diagramLayout);
           markdownText = extracted.markdown;
-          ctx.diagrams = extracted.diagrams;
+          ctx.diagrams = mergeDiagrams(ctx.diagrams, extracted.diagrams, markdownText);
         }
         this.updateTextDocument(ctx.document, markdownText);
       },

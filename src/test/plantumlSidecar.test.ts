@@ -8,6 +8,7 @@ import {
   inlineDiagrams,
   isDiagramLink,
   isPrunableSvg,
+  mergeDiagrams,
   nameFences,
   parseSidecar,
   serializeSidecar,
@@ -286,6 +287,50 @@ describe("extractDiagrams / inlineDiagrams round trip", () => {
     const { markdown, diagrams } = extractDiagrams(md, layout);
     expect(diagrams).toEqual([]);
     expect(markdown).toBe(md);
+  });
+});
+
+describe("mergeDiagrams (data-loss safety net)", () => {
+  it("preserves a previously-known diagram whose link is still present but wasn't recognized by extraction", () => {
+    // Simulates a pre-existing diagram whose image link doesn't match this
+    // document's expected diagram-folder path (e.g. written by other
+    // tooling), so extractDiagrams doesn't find/re-extract it.
+    const previous: Diagram[] = [
+      { name: "core-data-model", source: "class Account {}" },
+    ];
+    const extracted: Diagram[] = [
+      { name: "architecture-1", source: "Alice -> Bob" },
+    ];
+    const markdown =
+      "![core-data-model](/.attachments/Domain/core-data-model.svg)\n\n" +
+      "![architecture-1](/.attachments/docs/architecture/architecture-1.svg)";
+    const merged = mergeDiagrams(previous, extracted, markdown);
+    expect(merged).toEqual([
+      { name: "architecture-1", source: "Alice -> Bob" },
+      { name: "core-data-model", source: "class Account {}" },
+    ]);
+  });
+
+  it("drops a previously-known diagram whose link no longer appears anywhere (genuine deletion)", () => {
+    const previous: Diagram[] = [
+      { name: "architecture-1", source: "Alice -> Bob" },
+    ];
+    const extracted: Diagram[] = [];
+    const markdown = "just some text now, the diagram was deleted";
+    expect(mergeDiagrams(previous, extracted, markdown)).toEqual([]);
+  });
+
+  it("does not duplicate a diagram that extraction already re-found", () => {
+    const previous: Diagram[] = [
+      { name: "architecture-1", source: "old source" },
+    ];
+    const extracted: Diagram[] = [
+      { name: "architecture-1", source: "new source" },
+    ];
+    const markdown = "![architecture-1](/.attachments/docs/architecture/architecture-1.svg)";
+    expect(mergeDiagrams(previous, extracted, markdown)).toEqual([
+      { name: "architecture-1", source: "new source" },
+    ]);
   });
 });
 
