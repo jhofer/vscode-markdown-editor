@@ -167,13 +167,20 @@ function legacyMarkdown(diagram: Diagram): string {
 /**
  * Parses a `.plantuml` sidecar file into its diagrams. Blocks without a name
  * are assigned the next free `${baseName}-${n}`.
+ *
+ * Accepts both `@startuml name` (this extension's own format) and
+ * `@startuml(name)` (no space) for the name, so sidecars written by other
+ * tooling using the parenthesized convention are still recognized on read.
+ * Sidecars are always re-serialized (on save) using the space-separated
+ * form — see `serializeSidecar`.
  */
 export function parseSidecar(text: string, baseName: string): Diagram[] {
-  const re = /@startuml(?:[ \t]+(\S+))?[ \t]*\r?\n([\s\S]*?)\r?\n@enduml[ \t]*(?:\r?\n|$)/g;
+  const re =
+    /@startuml(?:\(([^)]+)\)|[ \t]+(\S+))?[ \t]*\r?\n([\s\S]*?)\r?\n@enduml[ \t]*(?:\r?\n|$)/g;
   const entries: Array<{ name: string | null; source: string }> = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
-    entries.push({ name: m[1] ?? null, source: m[2] });
+    entries.push({ name: m[1] ?? m[2] ?? null, source: m[3] });
   }
   return allocateNames(baseName, entries);
 }
