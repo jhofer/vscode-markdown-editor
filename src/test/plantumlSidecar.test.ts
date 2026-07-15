@@ -51,6 +51,31 @@ describe("parseSidecar / serializeSidecar", () => {
   it("serializes an empty diagram list as an empty string", () => {
     expect(serializeSidecar([])).toBe("");
   });
+
+  it("parses @startuml(name) (parenthesized, no space) as used by other tooling", () => {
+    const text = "@startuml(core-data-model)\nclass Account {\n}\n@enduml\n";
+    const diagrams = parseSidecar(text, "Datenmodell");
+    expect(diagrams).toEqual([
+      { name: "core-data-model", source: "class Account {\n}" },
+    ]);
+  });
+
+  it("parses a mix of @startuml(name) and @startuml name blocks", () => {
+    const text =
+      "@startuml(core-data-model)\nA -> B\n@enduml\n\n@startuml architecture-1\nC -> D\n@enduml\n";
+    const diagrams = parseSidecar(text, "architecture");
+    expect(diagrams.map((d) => d.name)).toEqual([
+      "core-data-model",
+      "architecture-1",
+    ]);
+  });
+
+  it("always serializes using the space-separated form, even if the source used parens", () => {
+    const text = "@startuml(core-data-model)\nA -> B\n@enduml\n";
+    const diagrams = parseSidecar(text, "Datenmodell");
+    const serialized = serializeSidecar(diagrams);
+    expect(serialized).toBe("@startuml core-data-model\nA -> B\n@enduml\n");
+  });
 });
 
 describe("path helpers", () => {

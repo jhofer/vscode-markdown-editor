@@ -119,6 +119,10 @@ Known limitations:
   re-inlining while it's off.
 * If Java is unavailable, the sidecar file and image links are still written,
   but the SVGs are not generated.
+* Sidecar files using `@startuml(name)` (parentheses, no space — a
+  convention used by some external PlantUML tooling) are read correctly, but
+  are always rewritten as `@startuml name` (space-separated) on the next
+  save.
 
 ## Credits
 

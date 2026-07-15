@@ -81,7 +81,9 @@ export default {
   // ],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // moduleNameMapper: {},
+  moduleNameMapper: {
+    "\\.css$": "<rootDir>/src/test/cssStub.js",
+  },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],
@@ -180,7 +182,7 @@ export default {
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
   transformIgnorePatterns: [
-    "/node_modules/(?!(refractor|hastscript|parse-entities|hast-util-parse-selector|property-information|comma-separated-tokens|space-separated-tokens|character-entities|character-entities-legacy|character-reference-invalid|decode-named-character-reference|is-alphabetical|is-alphanumerical|is-decimal|is-hexadecimal)/)",
+    "/node_modules/(?!(refractor|hastscript|parse-entities|hast-util-parse-selector|property-information|comma-separated-tokens|space-separated-tokens|character-entities|character-entities-legacy|character-reference-invalid|decode-named-character-reference|is-alphabetical|is-alphanumerical|is-decimal|is-hexadecimal|react-viewer-pan-zoom)/)",
   ],
 
   // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
