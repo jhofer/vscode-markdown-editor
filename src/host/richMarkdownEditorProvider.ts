@@ -508,7 +508,7 @@ export class RichMarkdownEditorProvider
 
     const preserveEmptyParagraphs = vscode.workspace
       .getConfiguration("inkwell-md")
-      .get("preserveEmptyParagraphs", false);
+      .get<boolean>("preserveEmptyParagraphs", false);
 
     // Local path to script and css for the webview
     const scriptUri = webview.asWebviewUri(

@@ -57,6 +57,6 @@ export default function frontmatterRule(md: MarkdownIt): void {
 
       return true;
     },
-    {}
+    { alt: [] }
   );
 }

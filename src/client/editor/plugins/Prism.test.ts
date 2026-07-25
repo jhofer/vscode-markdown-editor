@@ -50,5 +50,5 @@ test("highlights code fences when state is initialized with existing document", 
   });
 
   const decorationSet = prismPlugin.getState(replacedState);
-  expect(decorationSet.find().length).toBeGreaterThan(0);
+  expect(decorationSet!.find().length).toBeGreaterThan(0);
 });

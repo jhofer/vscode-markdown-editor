@@ -140,7 +140,7 @@ export default class Table extends Node {
       tableEditing(),
       new Plugin({
         props: {
-          decorations: state => {
+          decorations: (state): any => {
             const { doc } = state;
             const decorations: Decoration[] = [];
             let index = 0;

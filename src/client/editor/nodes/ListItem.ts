@@ -134,7 +134,7 @@ export default class ListItem extends Node {
         },
         props: {
           decorations(state) {
-            return this.getState(state);
+            return this.getState(state) as any;
           },
           handleDOMEvents: {
             mouseover: (view, event) => {

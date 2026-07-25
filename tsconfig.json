@@ -1,16 +1,19 @@
 {
 	"compilerOptions": {
         "jsx": "react",
+		"allowJs": true,
 		"module": "commonjs",
 		"target": "es2020",
 		"lib": ["es2020", "dom"],
 		"outDir": "out",
 		"sourceMap": true,
 		"strict": true,
+		"noImplicitAny": false,
 		"rootDir": "./src",
 		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true
+		"forceConsistentCasingInFileNames": true,
+		"types": ["node", "jest", "vscode-webview"]
 	},
 	"include": ["src/**/*"],
-	"exclude": ["node_modules", ".vscode-test", "out"]
+	"exclude": ["node_modules", ".vscode-test", "out", "src/client/editor/stories"]
 }

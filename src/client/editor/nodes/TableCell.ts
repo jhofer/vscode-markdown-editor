@@ -50,7 +50,7 @@ export default class TableCell extends Node {
     return [
       new Plugin({
         props: {
-          decorations: state => {
+          decorations: (state): any => {
             const { doc, selection } = state;
             const decorations: Decoration[] = [];
             const cells = getCellsInColumn(0)(selection);

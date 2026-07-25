@@ -46,7 +46,7 @@ export default class TableHeadCell extends Node {
     return [
       new Plugin({
         props: {
-          decorations: state => {
+          decorations: (state): any => {
             const { doc, selection } = state;
             const decorations: Decoration[] = [];
             const cells = getCellsInRow(0)(selection);

@@ -245,7 +245,12 @@ const Wrapper = styled.div<{
 
 export default React.forwardRef(function FloatingToolbarWithForwardedRef(
   props: Props,
-  ref: React.RefObject<HTMLDivElement>
+  ref: React.ForwardedRef<HTMLDivElement>
 ) {
-  return <FloatingToolbar {...props} forwardedRef={ref} />;
+  return (
+    <FloatingToolbar
+      {...props}
+      forwardedRef={ref as React.RefObject<HTMLDivElement>}
+    />
+  );
 });

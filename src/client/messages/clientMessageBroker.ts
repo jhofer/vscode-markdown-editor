@@ -66,7 +66,7 @@ export class ClientMessageBroker {
     }
   }
 
-  private handleMessage(ev: MessageEvent) {
+  handleMessage(ev: MessageEvent) {
     const request = ev.data as IMessageRequest;
     console.log("ClientMessageBroker received message:", { 
       requestDocumentUri: request.documentUri, 

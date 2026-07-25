@@ -19,7 +19,7 @@ const insertFiles = function(
     uploadImage: (file: File) => Promise<{src:string, rawsrc:string}>;
     onImageUploadStart?: () => void;
     onImageUploadStop?: () => void;
-    onShowToast?: (message: string, code: string) => void;
+    onShowToast?: (message: string, code: ToastType) => void;
   }
 ): void {
   // filter to only include image files

@@ -2,7 +2,6 @@ import {
   getNonce,
   markdownToOutline,
   outlineToMarkdown,
-  stripSlashes,
   extractFrontmatter,
   restoreFrontmatter,
 } from "../client/utils/utils"

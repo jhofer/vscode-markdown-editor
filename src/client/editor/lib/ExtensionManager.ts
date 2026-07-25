@@ -1,4 +1,5 @@
 import { Schema } from "prosemirror-model";
+import { Plugin } from "prosemirror-state";
 import { keymap } from "prosemirror-keymap";
 import { MarkdownParser } from "prosemirror-markdown";
 import { MarkdownSerializer } from "./markdown/serializer";
@@ -24,9 +25,9 @@ export default class ExtensionManager {
 
   get nodes() {
     return this.extensions
-      .filter(extension => extension.type === "node")
+      .filter((extension): extension is Node => extension.type === "node")
       .reduce(
-        (nodes, node: Node) => ({
+        (nodes, node) => ({
           ...nodes,
           [node.name]: node.schema,
         }),
@@ -36,9 +37,9 @@ export default class ExtensionManager {
 
   serializer() {
     const nodes = this.extensions
-      .filter(extension => extension.type === "node")
+      .filter((extension): extension is Node => extension.type === "node")
       .reduce(
-        (nodes, extension: Node) => ({
+        (nodes, extension) => ({
           ...nodes,
           [extension.name]: extension.toMarkdown,
         }),
@@ -46,9 +47,9 @@ export default class ExtensionManager {
       );
 
     const marks = this.extensions
-      .filter(extension => extension.type === "mark")
+      .filter((extension): extension is Mark => extension.type === "mark")
       .reduce(
-        (marks, extension: Mark) => ({
+        (marks, extension) => ({
           ...marks,
           [extension.name]: extension.toMarkdown,
         }),
@@ -69,9 +70,10 @@ export default class ExtensionManager {
   }): MarkdownParser {
     const tokens: Record<string, any> = this.extensions
       .filter(
-        extension => extension.type === "mark" || extension.type === "node"
+        (extension): extension is Node | Mark =>
+          extension.type === "mark" || extension.type === "node"
       )
-      .reduce((nodes, extension: Node | Mark) => {
+      .reduce((nodes, extension) => {
         const md = extension.parseMarkdown();
         if (!md) return nodes;
 
@@ -81,14 +83,22 @@ export default class ExtensionManager {
         };
       }, {});
 
-    return new MarkdownParser(schema, makeRules({ rules, plugins }), tokens);
+    // prosemirror-markdown bundles its own (newer) copy of @types/markdown-it,
+    // which structurally conflicts with this project's top-level
+    // @types/markdown-it version. The runtime objects are compatible; only
+    // the duplicated type declarations disagree, hence the cast.
+    return new MarkdownParser(
+      schema,
+      makeRules({ rules, plugins }) as any,
+      tokens
+    );
   }
 
   get marks() {
     return this.extensions
-      .filter(extension => extension.type === "mark")
+      .filter((extension): extension is Mark => extension.type === "mark")
       .reduce(
-        (marks, { name, schema }: Mark) => ({
+        (marks, { name, schema }) => ({
           ...marks,
           [name]: schema,
         }),
@@ -99,7 +109,10 @@ export default class ExtensionManager {
   get plugins() {
     return this.extensions
       .filter(extension => "plugins" in extension)
-      .reduce((allPlugins, { plugins }) => [...allPlugins, ...plugins], []);
+      .reduce(
+        (allPlugins, { plugins }) => [...allPlugins, ...plugins],
+        [] as Plugin[]
+      );
   }
 
   get rulePlugins() {
@@ -110,7 +123,7 @@ export default class ExtensionManager {
           ...allRulePlugins,
           ...rulePlugins,
         ],
-        []
+        [] as PluginSimple[]
       );
   }
 

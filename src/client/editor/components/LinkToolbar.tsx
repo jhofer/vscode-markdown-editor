@@ -112,13 +112,14 @@ export default class LinkToolbar extends React.Component<Props> {
     this.props.view.focus();
 
     const { dispatch, state } = view;
+    const finalTitle = title || href;
 
     dispatch(
       view.state.tr
-        .insertText(title, from, to)
+        .insertText(finalTitle, from, to)
         .addMark(
           from,
-          from + title.length,
+          from + finalTitle.length,
           state.schema.marks.link.create({ href })
         )
     );

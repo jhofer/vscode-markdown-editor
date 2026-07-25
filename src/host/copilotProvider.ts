@@ -23,7 +23,7 @@ export class CopilotProvider {
         { vendor: "copilot", family: "claude-haiku-4.5" },
       ];
 
-      let selectedModel = null;
+      let selectedModel: vscode.LanguageModelChat | undefined = undefined;
 
       // Try each free tier model preference in order
       for (const preference of freeModelPreferences) {

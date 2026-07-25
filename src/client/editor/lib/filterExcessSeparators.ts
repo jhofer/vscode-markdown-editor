@@ -19,5 +19,5 @@ export default function filterExcessSeparators(
 
     // otherwise, continue
     return [...acc, item];
-  }, []);
+  }, [] as (MenuItem | EmbedDescriptor)[]);
 }

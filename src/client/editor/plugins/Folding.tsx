@@ -54,7 +54,7 @@ export default class Folding extends Extension {
           return modified ? tr : null;
         },
         props: {
-          decorations: state => {
+          decorations: (state): any => {
             const { doc } = state;
             const decorations: Decoration[] = findCollapsedNodes(doc).map(
               block =>

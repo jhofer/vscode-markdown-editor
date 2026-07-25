@@ -29,11 +29,6 @@ export const LANGUAGES = {
   yaml: "YAML",
 };
 
-type ParsedNode = {
-  text: string;
-  classes: string[];
-};
-
 const cache: Record<number, { node: Node; decorations: Decoration[] }> = {};
 
 function getDecorations({ doc, name }: { doc: Node; name: string }) {
@@ -48,12 +43,15 @@ function getDecorations({ doc, name }: { doc: Node; name: string }) {
   ): any {
     return nodes.map(node => {
       if (node.type === "element") {
-        const classes = [...classNames, ...(node.properties.className || [])];
+        const className = node.properties?.className as
+          | (string | number)[]
+          | undefined;
+        const classes = [...classNames, ...(className || []).map(String)];
         return parseNodes(node.children, classes);
       }
 
       return {
-        text: node.value,
+        text: (node as any).value,
         classes: classNames,
       };
     });
@@ -69,7 +67,7 @@ function getDecorations({ doc, name }: { doc: Node; name: string }) {
     if (!cache[block.pos] || !cache[block.pos].node.eq(block.node)) {
       const nodes = refractor.highlight(block.node.textContent, language);
       const _decorations = flattenDeep(parseNodes(nodes.children))
-        .map((node: ParsedNode) => {
+        .map((node: any) => {
           const from = startPos;
           const to = from + node.text.length;
 
@@ -113,7 +111,7 @@ export default function Prism({ name }) {
   return new Plugin({
     key: new PluginKey("prism"),
     state: {
-      init: (_: Plugin, { doc }) => {
+      init: (_: any, { doc }) => {
         return getDecorations({ doc, name });
       },
       apply: (transaction: Transaction, decorationSet, oldState, state) => {
@@ -146,7 +144,7 @@ export default function Prism({ name }) {
     },
     props: {
       decorations(state) {
-        return this.getState(state);
+        return this.getState(state) as any;
       },
     },
   });
