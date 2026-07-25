@@ -154,7 +154,7 @@ export const StyledEditor = styled("div")<{
 
   .heading-content {
     &:before {
-      content: "\200b";
+      content: "\u200b";
       display: inline;
     }
   }
