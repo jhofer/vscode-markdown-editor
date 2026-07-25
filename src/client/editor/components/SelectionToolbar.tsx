@@ -193,7 +193,7 @@ export default class SelectionToolbar extends React.Component<Props> {
       selection.node && selection.node.type.name === "image";
     let isTextSelection = false;
 
-    let items: MenuItem[] = [];
+    let items: MenuItem[];
     if (isTableSelection) {
       items = getTableMenuItems(dictionary);
     } else if (colIndex !== undefined) {

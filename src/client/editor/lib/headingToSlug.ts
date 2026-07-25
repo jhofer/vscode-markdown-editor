@@ -8,7 +8,7 @@ import slugify from "slugify";
 function safeSlugify(text: string) {
   return `h-${escape(
     slugify(text, {
-      remove: /[!"#$%&'\.()*+,\/:;<=>?@\[\]\\^_`{|}~]/g,
+      remove: /[!"#$%&'.()*+,/:;<=>?@[\]\\^_`{|}~]/g,
       lower: true,
     })
   )}`;

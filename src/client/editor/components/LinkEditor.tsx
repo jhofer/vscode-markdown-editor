@@ -199,6 +199,7 @@ class LinkEditor extends React.Component<Props, State> {
 
       case "ArrowDown":
         if (event.shiftKey) return;
+      // falls through
       case "Tab": {
         event.preventDefault();
         event.stopPropagation();

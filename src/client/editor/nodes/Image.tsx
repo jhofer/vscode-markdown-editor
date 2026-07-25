@@ -18,7 +18,7 @@ import InlinePanZoomViewer from "../components/InlinePanZoomViewer";
  * ![Lorem](image.jpg "class") -> [, "Lorem", "image.jpg", "small"]
  */
 export const IMAGE_INPUT_REGEX =
-  /!\[(?<alt>[^\]\[]*?)]\((?<filename>[^\]\[]*?)(?="|\))"?([^"\[\]]+)?\)?$/;
+  /!\[(?<alt>[^\][]*?)]\((?<filename>[^\][]*?)(?="|\))"?([^"[\]]+)?\)?$/;
 
 const uploadPlugin = (options) =>
   new Plugin({

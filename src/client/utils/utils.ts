@@ -26,6 +26,9 @@ export function debounce<T extends (...args: any) => any>(
   
   const debounced = function (this: ThisParameterType<T>, ...args: Parameters<T>) {
     lastArgs = args;
+    // Capture `this` so the deferred `func.apply` call below can use the caller's
+    // context once the timeout fires.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     lastThis = this;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {

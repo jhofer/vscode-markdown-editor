@@ -86,7 +86,6 @@ export function CodeMirrorEditor({ value, onChange }: CodeMirrorEditorProps) {
       view.destroy();
       viewRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update editor content when value changes externally (e.g. from extension host).

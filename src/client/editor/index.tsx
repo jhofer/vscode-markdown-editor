@@ -405,7 +405,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
         }
 
         const tr = this.view.state.tr;
-        let to = from;
+        let to: number;
 
         // Parse completion as markdown so formatting like headings/lists is rendered,
         // and fall back to plain text insertion if parsing/replacement fails.
