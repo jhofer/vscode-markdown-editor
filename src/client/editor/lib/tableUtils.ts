@@ -115,7 +115,9 @@ export const getCellsInColumn = (columnIndex: number) => (
         bottom: map.height,
       });
       return cells.map(nodePos => {
-        const node = table.node.nodeAt(nodePos);
+        // cellsInRect only returns positions of actual cells within this
+        // table node, so nodeAt is guaranteed to find one here.
+        const node = table.node.nodeAt(nodePos)!;
         const pos = nodePos + table.start;
         return { pos, start: pos + 1, node };
       });
@@ -138,7 +140,9 @@ export const getCellsInRow = (rowIndex: number) => (
         bottom: rowIndex + 1,
       });
       return cells.map(nodePos => {
-        const node = table.node.nodeAt(nodePos);
+        // cellsInRect only returns positions of actual cells within this
+        // table node, so nodeAt is guaranteed to find one here.
+        const node = table.node.nodeAt(nodePos)!;
         const pos = nodePos + table.start;
         return { pos, start: pos + 1, node };
       });
@@ -229,10 +233,10 @@ const tableNodeTypes = (schema): TableNodeTypes => {
   return roles as TableNodeTypes;
 };
 
-const createCell = (cellType: PMNode["type"], cellContent = null) =>
+const createCell = (cellType: PMNode["type"], cellContent = null): PMNode =>
   cellContent
     ? cellType.createChecked(null, cellContent)
-    : cellType.createAndFill();
+    : cellType.createAndFill()!;
 
 export const createTable = (
   schema,
@@ -248,8 +252,8 @@ export const createTable = (
     table,
   } = tableNodeTypes(schema);
 
-  const cells = [];
-  const headerCells = [];
+  const cells: PMNode[] = [];
+  const headerCells: PMNode[] = [];
   for (let i = 0; i < colsCount; i++) {
     cells.push(createCell(tableCell, cellContent));
     if (withHeaderRow) {
@@ -257,7 +261,7 @@ export const createTable = (
     }
   }
 
-  const rows = [];
+  const rows: PMNode[] = [];
   for (let i = 0; i < rowsCount; i++) {
     rows.push(
       tableRow.createChecked(null, withHeaderRow && i === 0 ? headerCells : cells)
