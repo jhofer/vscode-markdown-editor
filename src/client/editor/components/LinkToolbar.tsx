@@ -97,12 +97,12 @@ export default class LinkToolbar extends React.Component<Props> {
 
   handleOnSelectLink = ({
     href,
-    title,
+    title = "",
     from,
     to,
   }: {
     href: string;
-    title: string;
+    title?: string;
     from: number;
     to: number;
   }) => {

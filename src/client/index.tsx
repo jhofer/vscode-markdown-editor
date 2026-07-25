@@ -1,7 +1,9 @@
 import { App } from "./app";
 import React from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 
 const el = document.getElementById("app");
 el?.classList.remove("loading");
-ReactDOM.render(<App />, el);
+if (el) {
+  createRoot(el).render(<App />);
+}

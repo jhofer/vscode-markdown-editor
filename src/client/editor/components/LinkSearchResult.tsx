@@ -13,7 +13,7 @@ type Props = {
 
 function LinkSearchResult({ title, subtitle, selected, icon, ...rest }: Props) {
   const ref = React.useCallback(
-    node => {
+    (node: HTMLLIElement | null) => {
       if (selected && node) {
         scrollIntoView(node, {
           scrollMode: "if-needed",

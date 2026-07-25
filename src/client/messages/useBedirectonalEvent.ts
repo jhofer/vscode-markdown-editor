@@ -20,8 +20,12 @@ export const useBidirectionalEvent = <
     TError
   >
 ) => {
-  const resultCallback = useRef<(result: TResponse["payload"]) => void>();
-  const errorCallback = useRef<(result: TError["payload"]) => void>();
+  const resultCallback = useRef<(result: TResponse["payload"]) => void>(
+    undefined
+  );
+  const errorCallback = useRef<(result: TError["payload"]) => void>(
+    undefined
+  );
 
   useEffect(() => {
     messageBroker.registerHandler(

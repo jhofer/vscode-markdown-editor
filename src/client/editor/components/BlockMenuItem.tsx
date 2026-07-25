@@ -26,7 +26,7 @@ function BlockMenuItem({
   const Icon = icon;
 
   const ref = React.useCallback(
-    node => {
+    (node: HTMLButtonElement | null) => {
       if (selected && node) {
         scrollIntoView(node, {
           scrollMode: "if-needed",
