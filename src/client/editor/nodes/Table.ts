@@ -17,10 +17,7 @@ import {
   toggleHeaderColumn,
   toggleHeaderRow,
 } from "prosemirror-tables";
-import {
-  createTable,
-  getCellsInColumn,
-} from "prosemirror-utils";
+import { createTable, getCellsInColumn } from "../lib/tableUtils";
 import { Plugin, TextSelection } from "prosemirror-state";
 import tablesRule from "../rules/tables";
 
