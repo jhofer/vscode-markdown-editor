@@ -1,6 +1,9 @@
 
 import MarkdownIt from "markdown-it";
-import Token from "markdown-it/lib/token";
+// markdown-it v14 ships lib/token as an ESM-only module, so only import the
+// Token type here (erased at compile time); the value is taken from
+// state.Token inside the rule below.
+import type { Token } from "markdown-it";
 
 function isBreak(token: Token) {
   return (

@@ -1,5 +1,8 @@
 import MarkdownIt from "markdown-it";
-import Token from "markdown-it/lib/token";
+// markdown-it v14 ships lib/token as an ESM-only module, so only import the
+// Token type here (erased at compile time) and use state.Token for the
+// runtime construction below.
+import type { Token } from "markdown-it";
 
 function isParagraph(token: Token) {
   return token.type === "paragraph_open";
@@ -68,7 +71,7 @@ export default function(embeds) {
                 const { content } = current;
 
                 // convert to embed token
-                const token = new Token("embed", "iframe", 0);
+                const token = new state.Token("embed", "iframe", 0);
                 token.attrSet("href", content);
 
                 // delete the inline link – this makes the assumption that the

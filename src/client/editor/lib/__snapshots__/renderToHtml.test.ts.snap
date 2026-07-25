@@ -44,6 +44,8 @@ exports[`renders code fence 1`] = `
 
 exports[`renders code marks 1`] = `"<p>this is <code>inline code</code> text</p>"`;
 
+exports[`renders emoji shortcodes 1`] = `"<p>Hello 😄 world ❤️</p>"`;
+
 exports[`renders hardbreaks as separate paragraphs 1`] = `
 "<p><strong>Status:</strong> Refinement<br>
 <strong>Type:</strong> User Story<br>

@@ -1,5 +1,8 @@
 import MarkdownIt from "markdown-it";
-import Token from "markdown-it/lib/token";
+// markdown-it v14 ships lib/token as an ESM-only module; this file only uses
+// Token as a type, so import it from the main package (type-only, erased at
+// compile time) instead of the ESM-only subpath.
+import type { Token } from "markdown-it";
 
 const CHECKBOX_REGEX = /\[(X|\s|_|-)\]\s(.*)?/i;
 

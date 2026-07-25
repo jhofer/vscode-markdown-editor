@@ -1,11 +1,13 @@
 import MarkdownIt from "markdown-it";
-import Token from "markdown-it/lib/token";
 
 const BREAK_REGEX = /(?:^|[^\\])\\n/;
 
 export default function markdownTables(md: MarkdownIt): void {
   // insert a new rule after the "inline" rules are parsed
   md.core.ruler.after("inline", "tables-pm", state => {
+    // markdown-it v14 ships lib/token as an ESM-only module, so import the
+    // Token class from the parser state instead of a direct subpath import.
+    const { Token } = state;
     const tokens = state.tokens;
     let inside = false;
 

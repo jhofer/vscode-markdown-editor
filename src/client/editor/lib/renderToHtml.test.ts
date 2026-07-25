@@ -172,3 +172,7 @@ test("renders softbreaks as separate paragraphs", () => {
     renderToHtml(`**a**: addd\n**a**: addd\n**a**: addd\n**a**: addd`)
   ).toMatchSnapshot();
 });
+
+test("renders emoji shortcodes", () => {
+  expect(renderToHtml(`Hello :smile: world :heart:`)).toMatchSnapshot();
+});
