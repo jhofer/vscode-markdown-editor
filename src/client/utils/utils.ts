@@ -1,5 +1,5 @@
 import prettier from "prettier/standalone";
-import prettierMd from "prettier/parser-markdown";
+import prettierMd from "prettier/plugins/markdown";
 
 const STRIP_SLASH_REG = new RegExp(/^\\$/gm);
 const ADD_SLASH_REG = new RegExp(/^\n(\n+)/gm);
