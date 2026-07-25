@@ -1,4 +1,4 @@
-import nameToEmoji from "gemoji/name-to-emoji.json";
+import { nameToEmoji } from "gemoji";
 import MarkdownIt from "markdown-it";
 // markdown-it-emoji v3 dropped its callable default export in favor of
 // named `full`/`light`/`bare` plugin variants. `bare` matches the old

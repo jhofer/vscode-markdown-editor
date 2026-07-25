@@ -181,7 +181,7 @@ export default {
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
   transformIgnorePatterns: [
-    "/node_modules/(?!(refractor|hastscript|parse-entities|hast-util-parse-selector|property-information|comma-separated-tokens|space-separated-tokens|character-entities|character-entities-legacy|character-reference-invalid|decode-named-character-reference|is-alphabetical|is-alphanumerical|is-decimal|is-hexadecimal)/)",
+    "/node_modules/(?!(refractor|hastscript|parse-entities|hast-util-parse-selector|property-information|comma-separated-tokens|space-separated-tokens|character-entities|character-entities-legacy|character-reference-invalid|decode-named-character-reference|is-alphabetical|is-alphanumerical|is-decimal|is-hexadecimal|gemoji)/)",
   ],
 
   // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
