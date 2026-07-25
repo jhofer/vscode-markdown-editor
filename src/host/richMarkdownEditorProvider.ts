@@ -582,10 +582,22 @@ export class RichMarkdownEditorProvider
   }
 
   /**
+   * The markdown parser/serializer always round-trips content as LF-only, so
+   * CRLF files need their line endings restored before being written back —
+   * otherwise every line looks changed to source control on the first edit.
+   */
+  private matchEol(text: string, document: vscode.TextDocument): string {
+    if (document.eol !== vscode.EndOfLine.CRLF) {
+      return text;
+    }
+    return text.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
+  }
+
+  /**
    * Write out the text to a given document.
    */
   private updateTextDocument(document: vscode.TextDocument, text: string) {
-    const sanitized = stripTrailingBlankLines(text);
+    const sanitized = this.matchEol(stripTrailingBlankLines(text), document);
 
     // Skip no-op edits to avoid marking the document dirty unnecessarily.
     if (sanitized === document.getText()) {

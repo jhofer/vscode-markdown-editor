@@ -12,3 +12,4 @@ tsconfig.lsif.json
 coverage/
 *.vsix
 ZVP.wiki
+.worktrees/
