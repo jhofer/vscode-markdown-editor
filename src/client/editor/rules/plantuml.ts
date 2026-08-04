@@ -1,27 +1,33 @@
 /**
- * Strips @startuml / @enduml wrapper lines from PlantUML source, returning
- * only the inner diagram content.
+ * Strips @startuml [name] / @enduml wrapper lines from PlantUML source,
+ * returning the inner diagram content and the name (if any) carried on the
+ * @startuml line — e.g. `@startuml architecture-1`.
  */
-function stripUmlDelimiters(content: string): string {
+function stripUmlDelimiters(content: string): { content: string; name: string | null } {
   const lines = content.split(/\r?\n/);
   let start = 0;
   let end = lines.length;
+  let name: string | null = null;
 
   // Trim trailing empty lines (fence content typically ends with \n)
   while (end > start && lines[end - 1].trim() === "") {
     end--;
   }
 
-  // Strip leading @startuml (with optional backslash escape)
-  if (start < end && /^\\?@startuml\b/i.test(lines[start].trim())) {
-    start++;
+  // Strip leading @startuml (with optional backslash escape), capturing a name if present
+  if (start < end) {
+    const startMatch = /^\\?@startuml\b[ \t]*(\S+)?/i.exec(lines[start].trim());
+    if (startMatch) {
+      name = startMatch[1] ?? null;
+      start++;
+    }
   }
   // Strip trailing @enduml (with optional backslash escape)
   if (end > start && /^\\?@enduml\s*$/i.test(lines[end - 1].trim())) {
     end--;
   }
 
-  return lines.slice(start, end).join("\n");
+  return { content: lines.slice(start, end).join("\n"), name };
 }
 
 /**
@@ -53,9 +59,11 @@ export default function plantumlRule(md): void {
     for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i];
       if (tok.type === "fence" && tok.info.trim().toLowerCase() === "plantuml") {
+        const { content, name } = stripUmlDelimiters(tok.content);
         tok.type = "plantuml";
         tok.tag = "div";
-        tok.content = stripUmlDelimiters(tok.content);
+        tok.content = content;
+        tok.meta = { ...(tok.meta || {}), name };
       }
     }
   });
@@ -73,6 +81,9 @@ export default function plantumlRule(md): void {
       if (!firstLine.startsWith("@startuml") && !firstLine.startsWith("\\@startuml")) return false;
 
       if (silent) return true;
+
+      const nameMatch = /^\\?@startuml\b[ \t]*(\S+)?/i.exec(firstLine);
+      const name = nameMatch ? nameMatch[1] ?? null : null;
 
       let nextLine = startLine + 1;
       let found = false;
@@ -105,6 +116,7 @@ export default function plantumlRule(md): void {
       token.content = contentLines.join("\n");
       token.block = true;
       token.map = [startLine, nextLine + 1];
+      token.meta = { name };
 
       return true;
     },

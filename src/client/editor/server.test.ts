@@ -140,6 +140,44 @@ Alice -> Bob: Hello
   expect(output).toContain("```");
 });
 
+test("parses a named @startuml line into the node's name attr", () => {
+  const md = `\`\`\`plantuml
+@startuml architecture-1
+Alice -> Bob: Hello
+@enduml
+\`\`\``;
+  const ast = parser.parse(md);
+  const json = ast.toJSON();
+  const plantumlNode = json.content.find((n: any) => n.type === "plantuml");
+  expect(plantumlNode).toBeDefined();
+  expect(plantumlNode.attrs?.name).toBe("architecture-1");
+  expect(plantumlNode.content[0].text).toBe("Alice -> Bob: Hello");
+});
+
+test("roundtrip named plantuml preserves the name on the @startuml line", () => {
+  const md = `\`\`\`plantuml
+@startuml architecture-1
+Alice -> Bob: Hello
+@enduml
+\`\`\``;
+  const ast = parser.parse(md);
+  const output = serializer.serialize(ast, undefined);
+  expect(output).toContain("@startuml architecture-1");
+  expect(output).toContain("Alice -> Bob: Hello");
+  expect(output).toContain("@enduml");
+});
+
+test("roundtrip unnamed plantuml stays byte-identical (flag-off output unchanged)", () => {
+  const md = `\`\`\`plantuml
+@startuml
+Alice -> Bob: Hello
+@enduml
+\`\`\``;
+  const ast = parser.parse(md);
+  const output = serializer.serialize(ast, undefined);
+  expect(output.trim()).toBe(md.trim());
+});
+
 // --- Legacy bare @startuml/@enduml format (backward compat) ---
 
 test("parses legacy plantuml block without leading newline", () => {
