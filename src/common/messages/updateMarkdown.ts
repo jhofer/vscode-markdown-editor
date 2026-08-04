@@ -11,10 +11,11 @@ const updateMarkdownRequest = (markdownText: string) => ({
 
 const updateMarkdownResponse = (
   markdownText: string,
-  urlLookup?: Record<string, string>
+  urlLookup?: Record<string, string>,
+  rawMarkdownText?: string
 ) => ({
   type: responseType,
-  payload: { markdownText, urlLookup },
+  payload: { markdownText, urlLookup, rawMarkdownText },
 });
 
 const updateMarkdownError = (error: string) => ({

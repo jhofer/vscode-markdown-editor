@@ -61,7 +61,7 @@
         "inkwell-md.plantumlExternalFiles": {
           "type": "boolean",
           "markdownDescription": "Store PlantUML sources in a `<name>.plantuml` sidecar file next to the markdown document and keep only a generated SVG image link in the markdown, instead of embedding the PlantUML source as a fenced code block. Reopen the editor for a change to take effect.",
-          "default": false,
+          "default": true,
           "scope": "window"
         },
         "inkwell-md.plantumlAttachmentsFolder": {

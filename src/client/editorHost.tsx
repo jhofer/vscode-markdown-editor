@@ -39,41 +39,51 @@ export function EditorHost(props: IEditorHostProps) {
   const { documentUri } = props;
   const [markdownText, setMarkdownText] =
     useVSCodeState<string>("markdownText");
+  // The literal on-disk markdown (PlantUML sidecar diagrams left as image
+  // links, not reconstituted as editable fences) — shown in raw/source mode
+  // so it always mirrors what's actually saved, unlike `markdownText` which
+  // the rich-text editor needs in "inline fence" form to stay editable.
+  const [rawMarkdownText, setRawMarkdownText] =
+    useVSCodeState<string>("rawMarkdownText");
 
   const [editMode, setEditMode] = useState<EditMode>(EditMode.RichText);
   const [isFullWidth, setIsFullWidth] = useState<boolean>(false);
 
   // Create a ref to store URL lookups that can be updated by message handler
   const urlLookupRef = useRef<Record<string, string>>({});
-  
+
   // Counter to force editor re-render when URL lookup changes
   const [urlLookupVersion, setUrlLookupVersion] = useState(0);
-  
+
   // Track the last markdown we sent to avoid echo updates
   const lastSentMarkdownRef = useRef<string | undefined>(undefined);
-  
+  const lastSentRawMarkdownRef = useRef<string | undefined>(undefined);
+
   // Track current markdown in a ref (to avoid closure issues in message handler)
   const currentMarkdownRef = useRef<string | undefined>(markdownText);
   currentMarkdownRef.current = markdownText;
-  
+  const currentRawMarkdownRef = useRef<string | undefined>(rawMarkdownText);
+  currentRawMarkdownRef.current = rawMarkdownText;
+
   // Track if we're expecting an echo (our own update coming back)
   const pendingUpdateRef = useRef<boolean>(false);
+  const pendingRawUpdateRef = useRef<boolean>(false);
 
   const messageBroker = useMessageBroker(documentUri, (broker) => {
     //add message handlers
-    broker.registerHandler(updateMarkdownMessage, ({ markdownText: incomingMarkdown, urlLookup }) => {
-      console.log("Received updateMarkdown message:", { 
-        markdownText: incomingMarkdown?.substring(0, 100), 
+    broker.registerHandler(updateMarkdownMessage, ({ markdownText: incomingMarkdown, urlLookup, rawMarkdownText: incomingRawMarkdown }) => {
+      console.log("Received updateMarkdown message:", {
+        markdownText: incomingMarkdown?.substring(0, 100),
         urlLookup,
         isEcho: pendingUpdateRef.current && isBasicallySame(incomingMarkdown, lastSentMarkdownRef.current)
       });
-      
+
       // Update URL lookup map - check if URLs actually changed
       if (urlLookup) {
         const hasNewUrls = Object.keys(urlLookup).some(
           key => urlLookupRef.current[key] !== urlLookup[key]
         );
-        
+
         if (hasNewUrls) {
           urlLookupRef.current = { ...urlLookupRef.current, ...urlLookup };
           console.log("Updated URL lookup:", urlLookupRef.current);
@@ -81,29 +91,42 @@ export function EditorHost(props: IEditorHostProps) {
           setUrlLookupVersion(v => v + 1);
         }
       }
-      
+
       // Skip update if this is an echo of our own change (same content coming back)
       // This prevents cursor position loss and flickering
       if (pendingUpdateRef.current && isBasicallySame(incomingMarkdown, lastSentMarkdownRef.current)) {
         console.log("Skipping echo update - content is the same");
         pendingUpdateRef.current = false;
-        return;
-      }
-      
-      // Pass full markdown (including frontmatter) to the rich-text editor
-      // Frontmatter is rendered as a code block by the Frontmatter node
-      const body = incomingMarkdown ?? "";
-
-      // Only update if the content is actually different from current state
-      // Use ref to get current value (avoids closure issue)
-      if (!isBasicallySame(body, currentMarkdownRef.current)) {
-        setMarkdownText(body);
-        console.log("Set markdown text, length:", body?.length);
       } else {
-        console.log("Skipping update - content unchanged");
+        // Pass full markdown (including frontmatter) to the rich-text editor
+        // Frontmatter is rendered as a code block by the Frontmatter node
+        const body = incomingMarkdown ?? "";
+
+        // Only update if the content is actually different from current state
+        // Use ref to get current value (avoids closure issue)
+        if (!isBasicallySame(body, currentMarkdownRef.current)) {
+          setMarkdownText(body);
+          console.log("Set markdown text, length:", body?.length);
+        } else {
+          console.log("Skipping update - content unchanged");
+        }
+
+        pendingUpdateRef.current = false;
       }
-      
-      pendingUpdateRef.current = false;
+
+      // Same echo/diff dance, independently, for the raw on-disk variant.
+      if (
+        pendingRawUpdateRef.current &&
+        isBasicallySame(incomingRawMarkdown, lastSentRawMarkdownRef.current)
+      ) {
+        pendingRawUpdateRef.current = false;
+      } else {
+        const rawBody = incomingRawMarkdown ?? "";
+        if (!isBasicallySame(rawBody, currentRawMarkdownRef.current)) {
+          setRawMarkdownText(rawBody);
+        }
+        pendingRawUpdateRef.current = false;
+      }
     });
   });
 
@@ -143,10 +166,11 @@ export function EditorHost(props: IEditorHostProps) {
   const handleMarkdownChange = useCallback(
     (value: string) => {
       // Track that we're sending this update so we can ignore the echo
-      lastSentMarkdownRef.current = value;
-      pendingUpdateRef.current = true;
+      lastSentRawMarkdownRef.current = value;
+      pendingRawUpdateRef.current = true;
+      currentRawMarkdownRef.current = value;
       messageBroker.sendMessage(updateMarkdownMessage.request(value));
-      setMarkdownText(value);
+      setRawMarkdownText(value);
     },
     [messageBroker]
   );
@@ -226,7 +250,7 @@ export function EditorHost(props: IEditorHostProps) {
 
   const markdownEditor = (
     <CodeMirrorEditor
-      value={markdownText || ""}
+      value={rawMarkdownText || ""}
       onChange={handleMarkdownChange}
     />
   );

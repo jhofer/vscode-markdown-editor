@@ -83,13 +83,16 @@ export class RichMarkdownEditorProvider
   };
 
   private updateWebview(ctx: EditorContext) {
-    let markdown = ctx.document.getText();
+    const rawMarkdown = ctx.document.getText();
+    let markdown = rawMarkdown;
 
     if (ctx.plantumlExternal && ctx.diagramLayout) {
       // Assign stable names to any still-unnamed inline fences (migration of
       // documents not yet externalized), then reconstitute this document's
       // own externalized diagrams (per the ownership rules) as fences so the
-      // webview always sees inline PlantUML source, never a generated image.
+      // rich-text editor always sees inline PlantUML source, never a generated
+      // image. `rawMarkdown` (sent separately below) stays untouched, so raw
+      // markdown mode mirrors exactly what's saved to disk.
       markdown = nameFences(markdown, ctx.diagramLayout.baseName);
       markdown = inlineDiagrams(markdown, ctx.diagrams, ctx.diagramLayout);
     }
@@ -144,7 +147,11 @@ export class RichMarkdownEditorProvider
       );
     }
 
-    const message = updateMarkdownMessage.response(markdown || "", urlLookUp);
+    const message = updateMarkdownMessage.response(
+      markdown || "",
+      urlLookUp,
+      rawMarkdown || "",
+    );
     logger.logDebug("updateWebview", message);
     ctx.messageBroker.sendMessage(message);
   }
