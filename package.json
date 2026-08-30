@@ -28,10 +28,20 @@
         "displayName": "inkwell.md",
         "selector": [
           {
-            "filenamePattern": "*.md"
+            "filenamePattern": "*.md",
+            "scheme": "file"
           },
           {
-            "filenamePattern": "*.markdown"
+            "filenamePattern": "*.md",
+            "scheme": "untitled"
+          },
+          {
+            "filenamePattern": "*.markdown",
+            "scheme": "file"
+          },
+          {
+            "filenamePattern": "*.markdown",
+            "scheme": "untitled"
           }
         ],
         "priority": "option"
