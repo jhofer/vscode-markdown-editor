@@ -8,6 +8,7 @@ function toDataUri(svg: string): string {
 
 export class PlantUmlRenderer {
   private jarPath: string;
+  private graphvizAvailable: Promise<boolean> | undefined;
 
   constructor(extensionPath: string) {
     this.jarPath = path.join(extensionPath, "vendor", "plantuml.jar");
@@ -37,13 +38,54 @@ export class PlantUmlRenderer {
     return svg;
   }
 
-  private generate(source: string): Promise<string> {
+  /**
+   * Diagrams other than sequence diagrams need a layout engine. PlantUML uses a
+   * native Graphviz `dot` binary when it can find one and otherwise falls back to
+   * its bundled JavaScript Graphviz port, which needs a JS engine that no longer
+   * ships with the JDK (Nashorn was removed in Java 15) — so on machines without
+   * Graphviz that fallback renders an error image instead of the diagram.
+   * Smetana is PlantUML's pure-Java layout engine: no external binary, no JS
+   * engine. Prefer native Graphviz for layout quality, fall back to Smetana.
+   */
+  private isGraphvizAvailable(): Promise<boolean> {
+    if (!this.graphvizAvailable) {
+      this.graphvizAvailable = this.testDot();
+    }
+    return this.graphvizAvailable;
+  }
+
+  private testDot(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const proc = spawn("java", [
+        "-Djava.awt.headless=true",
+        "-jar",
+        this.jarPath,
+        "-testdot",
+      ]);
+
+      const chunks: Uint8Array[] = [];
+      proc.stdout.on("data", (chunk) => chunks.push(chunk));
+      proc.stderr.on("data", (chunk) => chunks.push(chunk));
+
+      // If Java itself is missing, generate() reports that with a better message.
+      proc.on("error", () => resolve(false));
+      proc.on("close", () => {
+        const output = Buffer.concat(chunks).toString("utf8");
+        resolve(output.includes("Installation seems OK"));
+      });
+    });
+  }
+
+  private async generate(source: string): Promise<string> {
+    const useSmetana = !(await this.isGraphvizAvailable());
+
     return new Promise((resolve, reject) => {
       const proc = spawn("java", [
         "-Djava.awt.headless=true",
         "-DPLANTUML_SECURITY_PROFILE=INTERNET",
         "-jar",
         this.jarPath,
+        ...(useSmetana ? ["-Playout=smetana"] : []),
         "-pipe",
         "-tsvg",
         "-charset",
