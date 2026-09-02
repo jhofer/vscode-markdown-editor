@@ -29,19 +29,22 @@ PlantUML support is **bundled with the extension** - no separate PlantUML instal
 
 * **System dependencies:**
   * Java Runtime (JRE/JDK 8+) - required to run PlantUML
-  * Graphviz (`dot` executable) - required for certain diagram types (class, component, state diagrams, etc.)
+  * Graphviz (`dot` executable) - **optional**, recommended for the best layout of
+    class, component, state and similar diagrams
 
 Installation links:
 
 * Java: https://adoptium.net/
 * Graphviz: https://graphviz.org/download/
 
-After installation, ensure these commands are available in your terminal:
+After installation, ensure Java is available in your terminal:
 
-* Windows (PowerShell): `java -version` and `dot -V`
-* macOS/Linux: `java -version` and `dot -V`
+* Windows (PowerShell) / macOS / Linux: `java -version`
 
-If `dot` is not found, add Graphviz `bin` to your `PATH` and reload VS Code.
+If Graphviz is not installed (or `dot` is not on your `PATH`), the extension
+automatically renders those diagrams with PlantUML's built-in Smetana layout
+engine instead. Smetana needs no external binary, so diagrams always render;
+installing Graphviz and reloading VS Code just gives slightly nicer layouts.
 
 ## Settings
 
