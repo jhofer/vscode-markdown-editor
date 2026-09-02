@@ -27,32 +27,11 @@
 | adsf | adsf | asdf |
 |    |    | ddd |
 
-```plantuml
-@startuml
-' vscode-style
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
-
-
-Person(personAlias, "Label", "Optional Description")
-Container(containerAlias, "Label", "Technology", "Optional Description")
-System(systemAlias, "Label", "Optional Description")
-
-
-Rel(personAlias, containerAlias, "Label", "Optional Technology")
-@enduml
-```
+![Test-1](/.attachments/testfolder/Test/Test-1.svg)
 
 titel
 
-```plantuml
-@startuml
-' vscode-style
-' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
-Jonas -> Bob: Authentication Request
-Bob --> Jonas: Authentication Response
-@enduml
-```
+![Test-2](/.attachments/testfolder/Test/Test-2.svg)
 
 Lina A
 

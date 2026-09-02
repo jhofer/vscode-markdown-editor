@@ -1,0 +1,20 @@
+@startuml Test-1
+' vscode-style
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
+
+
+Person(personAlias, "Label", "Optional Description")
+Container(containerAlias, "Label", "Technology", "Optional Description")
+System(systemAlias, "Label", "Optional Description")
+
+
+Rel(personAlias, containerAlias, "Label", "Optional Technology")
+@enduml
+
+@startuml Test-2
+' vscode-style
+' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
+Jonas -> Bob: Authentication Request
+Bob --> Jonas: Authentication Response
+@enduml
