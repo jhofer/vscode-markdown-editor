@@ -9,6 +9,7 @@ import toggleBlockType from "../commands/toggleBlockType";
 import splitHeading from "../commands/splitHeading";
 import headingToSlug, { headingToPersistenceKey } from "../lib/headingToSlug";
 import Node from "./Node";
+import sourceMarkup from "../rules/sourceMarkup";
 import { ToastType } from "../types";
 
 export default class Heading extends Node {
@@ -25,6 +26,10 @@ export default class Heading extends Node {
     };
   }
 
+  get rulePlugins() {
+    return [sourceMarkup];
+  }
+
   get schema() {
     return {
       attrs: {
@@ -33,6 +38,16 @@ export default class Heading extends Node {
         },
         collapsed: {
           default: undefined,
+        },
+        // "#" for an ATX heading, "=" or "-" for a setext heading. Preserved so
+        // `Title\n=====` isn't rewritten to `# Title` on open.
+        markup: {
+          default: "#",
+        },
+        // The exact setext underline run from the source ("=====", "---"), so
+        // its length round-trips too. Null for ATX headings.
+        setextUnderline: {
+          default: null,
         },
       },
       content: "inline*",
@@ -89,6 +104,19 @@ export default class Heading extends Node {
   }
 
   toMarkdown(state: MarkdownSerializerState, node: ProsemirrorNode) {
+    const markup = node.attrs.markup;
+
+    if (markup === "=" || markup === "-") {
+      state.renderInline(node);
+      state.ensureNewLine();
+      const underline =
+        node.attrs.setextUnderline ||
+        markup.repeat(Math.max(node.textContent.length, 3));
+      state.write(underline);
+      state.closeBlock(node);
+      return;
+    }
+
     state.write(state.repeat("#", node.attrs.level) + " ");
     state.renderInline(node);
     state.closeBlock(node);
@@ -99,6 +127,9 @@ export default class Heading extends Node {
       block: "heading",
       getAttrs: (token: Record<string, any>) => ({
         level: +token.tag.slice(1),
+        markup:
+          token.markup === "=" || token.markup === "-" ? token.markup : "#",
+        setextUnderline: token.meta?.setextUnderline ?? null,
       }),
     };
   }

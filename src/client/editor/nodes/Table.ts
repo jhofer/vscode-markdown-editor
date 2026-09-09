@@ -28,6 +28,12 @@ export default class Table extends Node {
 
   get schema() {
     return {
+      attrs: {
+        // Whether the source wrote cells padded (`| a | b |`) or tight
+        // (`|a|b|`). Captured by rules/tables.ts; defaults to padded, which is
+        // also what editor-created tables use.
+        padded: { default: true },
+      },
       content: "tr+",
       tableRole: "table",
       isolating: true,
@@ -132,7 +138,10 @@ export default class Table extends Node {
   }
 
   parseMarkdown() {
-    return { block: "table" };
+    return {
+      block: "table",
+      getAttrs: tok => ({ padded: tok.meta?.padded ?? true }),
+    };
   }
 
   get plugins() {

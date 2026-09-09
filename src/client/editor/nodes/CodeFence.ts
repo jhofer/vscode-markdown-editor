@@ -63,11 +63,26 @@ export default class CodeFence extends Node {
     return "code_fence";
   }
 
-  get schema() {
+  get schema(): any {
     return {
       attrs: {
         language: {
           default: DEFAULT_LANGUAGE,
+        },
+        // The exact fence run from the source ("```", "~~~", "````") so fence
+        // character and length round-trip. Null for editor-created blocks.
+        fence: {
+          default: null,
+        },
+        // The raw info string exactly as written after the fence (including any
+        // leading space), e.g. "js" or " foo". Null falls back to `language`.
+        rawInfo: {
+          default: null,
+        },
+        // false only for an indented (4-space) code block, so it round-trips
+        // as an indented block instead of being rewritten to a ``` fence.
+        fenced: {
+          default: true,
         },
       },
       content: "text*",
@@ -207,10 +222,15 @@ export default class CodeFence extends Node {
   }
 
   toMarkdown(state, node) {
-    state.write("```" + (node.attrs.language || "") + "\n");
+    const fence = node.attrs.fence || "```";
+    const info =
+      node.attrs.rawInfo != null
+        ? node.attrs.rawInfo
+        : node.attrs.language || "";
+    state.write(fence + info + "\n");
     state.text(node.textContent, false);
     state.ensureNewLine();
-    state.write("```");
+    state.write(fence);
     state.closeBlock(node);
   }
 
@@ -218,10 +238,15 @@ export default class CodeFence extends Node {
     return "fence";
   }
 
-  parseMarkdown() {
+  parseMarkdown(): any {
     return {
       block: "code_block",
-      getAttrs: tok => ({ language: tok.info }),
+      getAttrs: tok => ({
+        language: tok.info,
+        fence: tok.meta?.fence ?? null,
+        rawInfo: tok.meta?.rawInfo ?? null,
+        fenced: true,
+      }),
     };
   }
 }

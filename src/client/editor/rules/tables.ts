@@ -2,6 +2,30 @@ import MarkdownIt from "markdown-it";
 
 const BREAK_REGEX = /(?:^|[^\\])\\n/;
 
+// Split a raw markdown table row into its cell segments, dropping exactly one
+// leading and one trailing pipe. Whitespace inside each segment is preserved so
+// the serializer can reproduce the source delimiter row verbatim.
+function splitPipeCells(line: string): string[] {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|");
+}
+
+// Whether a table's cells are written padded (`| a | b |`) or tight (`|a|b|`) in
+// the source. Falls back to `true` (the historical serializer behaviour) when
+// the row can't be classified cleanly.
+function looksPadded(headerLine: string, columnCount: number): boolean {
+  const cells = splitPipeCells(headerLine);
+  if (cells.length !== columnCount) return true;
+  const allTight = cells.every(c => c === c.trim());
+  const allPadded = cells.every(
+    c => c === "" || (/^\s/.test(c) && /\s$/.test(c))
+  );
+  if (allTight && !allPadded) return false;
+  return true;
+}
+
 export default function markdownTables(md: MarkdownIt): void {
   // insert a new rule after the "inline" rules are parsed
   md.core.ruler.after("inline", "tables-pm", state => {
@@ -10,6 +34,48 @@ export default function markdownTables(md: MarkdownIt): void {
     const { Token } = state;
     const tokens = state.tokens;
     let inside = false;
+
+    // Forward pass: capture the exact delimiter row and padding style of every
+    // table straight from the source, before the backward pass below rewrites
+    // the token stream. Without this the serializer rebuilds `|---|---|` from
+    // alignment alone and rewrites the file on open (see churn table in the
+    // markdown-roundtrip-fidelity plan).
+    const srcLines = state.src.split("\n");
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].type !== "table_open") continue;
+
+      const map = tokens[i].map;
+      if (!map) continue;
+
+      const headerLine = srcLines[map[0]];
+      const delimLine = srcLines[map[0] + 1];
+      if (typeof headerLine !== "string" || typeof delimLine !== "string") {
+        continue;
+      }
+
+      // header cells of the first row
+      const headCells: InstanceType<typeof Token>[] = [];
+      for (let j = i + 1; j < tokens.length; j++) {
+        if (tokens[j].type === "tr_close") break;
+        if (tokens[j].type === "th_open") headCells.push(tokens[j]);
+      }
+      if (!headCells.length) continue;
+
+      const segments = splitPipeCells(delimLine);
+      const delimiterOk =
+        segments.length === headCells.length &&
+        segments.every(s => /^\s*:?-+:?\s*$/.test(s));
+
+      const padded = looksPadded(headerLine, headCells.length);
+
+      tokens[i].meta = { ...tokens[i].meta, padded };
+      headCells.forEach((cell, k) => {
+        cell.meta = {
+          ...cell.meta,
+          ...(delimiterOk ? { delimiter: segments[k] } : {}),
+        };
+      });
+    }
 
     for (let i = tokens.length - 1; i > 0; i--) {
       if (inside) {

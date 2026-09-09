@@ -1,8 +1,5 @@
-import {
-  splitListItem,
-  sinkListItem,
-  liftListItem,
-} from "prosemirror-schema-list";
+import { splitListItem, liftListItem } from "prosemirror-schema-list";
+import sinkListItem from "../commands/sinkListItem";
 import {
   Transaction,
   EditorState,

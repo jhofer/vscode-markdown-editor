@@ -5,11 +5,20 @@ import MarkdownIt from "markdown-it";
 // state.Token inside the rule below.
 import type { Token } from "markdown-it";
 
-function isBreak(token: Token) {
-  return (
-    token.type === "softbreak" ||
-    (token.type === "text" && token.content === "\\")
-  );
+// A standalone backslash on its own line. markdown-it emits this as a bare
+// `text` token with content "\\" (a `\` immediately before a newline becomes a
+// `hardbreak` instead, so this only fires for the artefact that
+// `Paragraph.toMarkdown` writes for an empty paragraph when the
+// `preserveEmptyParagraphs` setting is on). Turning it back into a real empty
+// paragraph is what makes that setting round-trip.
+//
+// Soft breaks (single source newlines inside a paragraph) are intentionally NOT
+// handled here any more: they are represented by the `soft_break` inline node
+// (see nodes/SoftBreak.ts) so a soft-wrapped source line survives the
+// parse/serialize round trip unchanged instead of being split into separate
+// paragraphs.
+function isBackslashBreak(token: Token) {
+  return token.type === "text" && token.content === "\\";
 }
 
 export default function markdownBreakToParagraphs(md: MarkdownIt) {
@@ -21,19 +30,19 @@ export default function markdownBreakToParagraphs(md: MarkdownIt) {
     // work backwards through the tokens and find text that looks like a br
     for (let i = tokens.length - 1; i > 0; i--) {
       const tokenChildren = tokens[i].children || [];
-      const matches = tokenChildren.filter(isBreak);
+      const matches = tokenChildren.filter(isBackslashBreak);
 
       if (matches.length) {
         let token;
 
         const nodes: Token[] = [];
 
-        // Split children into groups separated by hardbreaks
+        // Split children into groups separated by the backslash breaks
         const groups: Token[][] = [];
         let currentGroup: Token[] = [];
 
         for (const child of tokenChildren) {
-          if (isBreak(child)) {
+          if (isBackslashBreak(child)) {
             groups.push(currentGroup);
             currentGroup = [];
           } else {

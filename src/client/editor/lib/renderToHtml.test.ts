@@ -166,8 +166,9 @@ test("renders backslash line breaks as separate paragraphs", () => {
   ).toMatchSnapshot();
 });
 
-test("renders softbreaks as separate paragraphs", () => {
-  // Single newlines without trailing spaces (softbreaks)
+test("renders softbreaks as newlines within a paragraph", () => {
+  // Single newlines without trailing spaces (softbreaks) are kept as-is: the
+  // source stays one paragraph so a soft-wrapped file round-trips unchanged.
   expect(
     renderToHtml(`**a**: addd\n**a**: addd\n**a**: addd\n**a**: addd`)
   ).toMatchSnapshot();
