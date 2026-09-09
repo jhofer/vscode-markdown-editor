@@ -52,6 +52,8 @@ import Emoji from "./nodes/Emoji";
 import CheckboxItem from "./nodes/CheckboxItem";
 import Embed from "./nodes/Embed";
 import HardBreak from "./nodes/HardBreak";
+import SoftBreak from "./nodes/SoftBreak";
+import documentStyleRule from "./rules/documentStyle";
 import Heading from "./nodes/Heading";
 import HorizontalRule from "./nodes/HorizontalRule";
 import Image from "./nodes/Image";
@@ -540,6 +542,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
         ...[
           new Doc(),
           new HardBreak(),
+          new SoftBreak(),
           new Paragraph(),
           new Blockquote(),
           new CodeBlock({
@@ -726,7 +729,10 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
   createParser() {
     return this.extensions.parser({
       schema: this.schema,
-      plugins: this.rulePlugins,
+      // documentStyleRule infers the doc's prevailing list style for
+      // editor-created nodes. Only the whole-document parser gets it — the
+      // paste parser must not let a pasted snippet redefine the document style.
+      plugins: [...this.rulePlugins, documentStyleRule],
     });
   }
 

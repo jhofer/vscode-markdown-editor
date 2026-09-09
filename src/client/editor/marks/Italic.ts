@@ -9,10 +9,19 @@ export default class Italic extends Mark {
 
   get schema() {
     return {
+      attrs: {
+        // The emphasis delimiter the source used: "_" or "*". Preserved so
+        // `_em_` isn't rewritten to `*em*` on open. New marks made in the
+        // editor default to "*".
+        markup: { default: "*" },
+      },
       parseDOM: [
-        { tag: "i" },
-        { tag: "em" },
-        { style: "font-style", getAttrs: value => value === "italic" },
+        { tag: "i", getAttrs: () => ({ markup: "*" }) },
+        { tag: "em", getAttrs: () => ({ markup: "*" }) },
+        {
+          style: "font-style",
+          getAttrs: value => (value === "italic" ? { markup: "*" } : false),
+        },
       ],
       toDOM: () => ["em"],
     };
@@ -34,14 +43,17 @@ export default class Italic extends Mark {
 
   get toMarkdown() {
     return {
-      open: "*",
-      close: "*",
+      open: (_state, mark) => mark.attrs.markup || "*",
+      close: (_state, mark) => mark.attrs.markup || "*",
       mixable: true,
       expelEnclosingWhitespace: true,
     };
   }
 
   parseMarkdown() {
-    return { mark: "em" };
+    return {
+      mark: "em",
+      getAttrs: tok => ({ markup: tok.markup === "_" ? "_" : "*" }),
+    };
   }
 }

@@ -56,6 +56,36 @@ export class MarkdownSerializer {
   }
 }
 
+// The alignment a delimiter-row segment (`---`, `:---:`, ` --: `, …) encodes.
+function impliedAlignment(segment) {
+  const s = segment.trim();
+  const left = s.startsWith(":");
+  const right = s.endsWith(":");
+  if (left && right) return "center";
+  if (left) return "left";
+  if (right) return "right";
+  return null;
+}
+
+// The delimiter-row segment for a header cell. Reuses the exact segment captured
+// from the source when it still agrees with the cell's alignment (so a column
+// re-aligned in the editor, or one added there with no stored segment, falls
+// back to a freshly built default).
+function delimiterSegment(attrs) {
+  const align = attrs.alignment || null;
+  let seg;
+  if (align === "center") seg = ":---:";
+  else if (align === "left") seg = ":---";
+  else if (align === "right") seg = "---:";
+  else seg = "----";
+
+  const source = attrs.delimiter;
+  if (source != null && impliedAlignment(source) === align) {
+    seg = source;
+  }
+  return seg;
+}
+
 // ::- This is an object used to track state and expose
 // methods related to markdown serialization. Instances are passed to
 // node and mark serialization methods (see `toMarkdown`).
@@ -307,14 +337,22 @@ export class MarkdownSerializerState {
     const prevTable = this.inTable;
     this.inTable = true;
 
-    // ensure there is an empty newline above all tables
-    this.out += "\n";
+    // Cells are written padded (`| a | b |`) or tight (`|a|b|`) depending on how
+    // the source table was written; captured at parse time (rules/tables.ts).
+    const padded = node.attrs.padded !== false;
+    const cellStart = padded ? "| " : "|";
+    const cellSep = padded ? " | " : "|";
+    const rowEnd = padded ? " |\n" : "|\n";
+
+    // Ensure a blank line above the table, but not a spurious leading newline
+    // when the table is the very first block in the document.
+    if (this.out) this.out += "\n";
 
     // rows
     node.forEach((row, _, i) => {
       // cols
       row.forEach((cell, _, j) => {
-        this.out += j === 0 ? "| " : " | ";
+        this.out += j === 0 ? cellStart : cellSep;
 
         cell.forEach(para => {
           // just padding the output so that empty cells take up the same space
@@ -322,7 +360,7 @@ export class MarkdownSerializerState {
           // TODO: Ideally we'd calc the longest cell length and use that
           // to pad all the others.
           if (para.textContent === "" && para.content.size === 0) {
-            this.out += "  ";
+            if (padded) this.out += "  ";
           } else {
             this.closed = false;
             this.render(para, row, j);
@@ -330,19 +368,11 @@ export class MarkdownSerializerState {
         });
 
         if (i === 0) {
-          if (cell.attrs.alignment === "center") {
-            headerBuffer += "|:---:";
-          } else if (cell.attrs.alignment === "left") {
-            headerBuffer += "|:---";
-          } else if (cell.attrs.alignment === "right") {
-            headerBuffer += "|---:";
-          } else {
-            headerBuffer += "|----";
-          }
+          headerBuffer += "|" + delimiterSegment(cell.attrs);
         }
       });
 
-      this.out += " |\n";
+      this.out += rowEnd;
 
       if (headerBuffer) {
         this.out += `${headerBuffer}|\n`;
@@ -358,7 +388,38 @@ export class MarkdownSerializerState {
   // content. If `startOfLine` is true, also escape characters that
   // has special meaning only at the start of the line.
   esc(str = "", startOfLine) {
-    str = str.replace(/[`*\\~\[\]]/g, "\\$&");
+    // A backslash only escapes the following character when that character is
+    // ASCII punctuation (or the backslash ends the string, where it could
+    // become a hard break); `a \ b` is left alone. Runs first, before the
+    // escapes below introduce their own backslashes.
+    str = str.replace(/\\(?=[!-/:-@[-`{-~])|\\$/g, "\\$&");
+
+    // Backticks only form an inline-code span in pairs; a lone backtick in
+    // prose is literal. Escape only when the same text node holds two or more
+    // (the cross-node pairing case is vanishingly rare in practice).
+    if ((str.match(/`/g) || []).length >= 2) {
+      str = str.replace(/`/g, "\\$&");
+    }
+
+    // `*` only forms emphasis when adjacent to a non-space on at least one
+    // side. ` * ` (whitespace on both sides) can never open or close a run, so
+    // leaving it unescaped keeps prose like `2 * 3` intact.
+    str = str.replace(/\*/g, (m, i, s) => {
+      const spaceBefore = i === 0 || /\s/.test(s[i - 1]);
+      const spaceAfter = i === s.length - 1 || /\s/.test(s[i + 1]);
+      return spaceBefore && spaceAfter ? m : "\\" + m;
+    });
+
+    // `~` only forms strikethrough as a `~~` run; a single `~approx` is
+    // literal.
+    str = str.replace(/~/g, (m, i, s) =>
+      s[i - 1] === "~" || s[i + 1] === "~" ? "\\" + m : m
+    );
+
+    // `[` only needs escaping when it could open a link or image reference:
+    // a `]` immediately followed by `(` or `[` before the next newline.
+    str = str.replace(/\[(?=[^\]\n]*\][([])/g, "\\$&");
+
     if (startOfLine) {
       str = str.replace(/^[:#\-*+]/, "\\$&").replace(/^(\d+)\./, "$1\\.");
     }

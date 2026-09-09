@@ -45,14 +45,24 @@ test("parses content that looks like frontmatter with hardbreaks", () => {
   expect(json.content[0].type).toBe("paragraph");
 });
 
-test("parses mixed softbreaks and hardbreaks", () => {
-  // Single newline (softbreak) should become paragraph, double space + newline (hardbreak) should become br
+test("parses mixed softbreaks and hardbreaks into one paragraph", () => {
+  // A single newline (softbreak) becomes a soft_break node; a double space +
+  // newline (hardbreak) becomes a br node. Both stay inside one paragraph so
+  // the source is not reflowed on open.
   const md = "line1  \nline2\nline3";
   const ast = parser.parse(md);
   const json = ast.toJSON();
-  // softbreak (line2\nline3) should create paragraph split
-  // hardbreak (line1  \nline2) should create br inline
-  expect(json.content.length).toBeGreaterThanOrEqual(1);
+  expect(json.content.length).toBe(1);
+  expect(json.content[0].type).toBe("paragraph");
+  const types = json.content[0].content.map((n: any) => n.type);
+  expect(types).toContain("br");
+  expect(types).toContain("soft_break");
+});
+
+test("roundtrips soft-wrapped paragraphs without reflowing them", () => {
+  const md = "first source line\nsecond source line\nthird source line";
+  const ast = parser.parse(md);
+  expect(serializer.serialize(ast, undefined)).toBe(md);
 });
 
 // --- YAML Frontmatter ---

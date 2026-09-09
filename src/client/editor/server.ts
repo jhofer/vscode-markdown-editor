@@ -1,6 +1,7 @@
 import { Schema } from "prosemirror-model";
 import ExtensionManager from "./lib/ExtensionManager";
 import render from "./lib/renderToHtml";
+import documentStyleRule from "./rules/documentStyle";
 
 // nodes
 import Doc from "./nodes/Doc";
@@ -14,6 +15,7 @@ import CheckboxList from "./nodes/CheckboxList";
 import CheckboxItem from "./nodes/CheckboxItem";
 import Embed from "./nodes/Embed";
 import HardBreak from "./nodes/HardBreak";
+import SoftBreak from "./nodes/SoftBreak";
 import Heading from "./nodes/Heading";
 import HorizontalRule from "./nodes/HorizontalRule";
 import Image from "./nodes/Image";
@@ -43,6 +45,7 @@ const extensions = new ExtensionManager([
   new Doc(),
   new Text(),
   new HardBreak(),
+  new SoftBreak(),
   new Paragraph(),
   new Blockquote(),
   new Emoji(),
@@ -82,7 +85,7 @@ export const schema = new Schema({
 
 export const parser = extensions.parser({
   schema,
-  plugins: extensions.rulePlugins,
+  plugins: [...extensions.rulePlugins, documentStyleRule],
 });
 
 export const serializer = extensions.serializer();

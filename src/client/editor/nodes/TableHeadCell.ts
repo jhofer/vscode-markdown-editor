@@ -27,6 +27,11 @@ export default class TableHeadCell extends Node {
         colspan: { default: 1 },
         rowspan: { default: 1 },
         alignment: { default: null },
+        // The exact delimiter-row segment for this column ("---", " :----: ",
+        // etc.), captured verbatim from the source by rules/tables.ts so the
+        // serializer can reproduce it instead of rebuilding it from alignment.
+        // Null for cells with no known source (pasted / editor-created).
+        delimiter: { default: null },
       },
     };
   }
@@ -38,7 +43,10 @@ export default class TableHeadCell extends Node {
   parseMarkdown() {
     return {
       block: "th",
-      getAttrs: tok => ({ alignment: tok.info }),
+      getAttrs: tok => ({
+        alignment: tok.info,
+        delimiter: tok.meta?.delimiter ?? null,
+      }),
     };
   }
 

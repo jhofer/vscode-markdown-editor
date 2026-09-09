@@ -10,6 +10,11 @@ export default class Blockquote extends Node {
 
   get schema() {
     return {
+      attrs: {
+        // "> " when the source wrote a space after the marker, ">" when it
+        // didn't. Preserved so `>text` isn't rewritten to `> text` on open.
+        markup: { default: "> " },
+      },
       content: "block+",
       group: "block",
       defining: true,
@@ -43,10 +48,16 @@ export default class Blockquote extends Node {
   }
 
   toMarkdown(state, node) {
-    state.wrapBlock("> ", null, node, () => state.renderContent(node));
+    const markup = node.attrs.markup || "> ";
+    state.wrapBlock(markup, null, node, () => state.renderContent(node));
   }
 
   parseMarkdown() {
-    return { block: "blockquote" };
+    return {
+      block: "blockquote",
+      getAttrs: token => ({
+        markup: token.meta?.spaceAfterMarker === false ? ">" : "> ",
+      }),
+    };
   }
 }
