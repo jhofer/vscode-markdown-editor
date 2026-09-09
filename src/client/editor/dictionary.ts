@@ -62,6 +62,13 @@ export const base = {
   warningNotice: "Warning notice",
   plantUml: "PlantUML diagram",
   mermaid: "Mermaid diagram",
+  searchPlaceholder: "Find",
+  searchMatchCase: "Match case",
+  searchPreviousMatch: "Previous match",
+  searchNextMatch: "Next match",
+  searchClose: "Close",
+  searchMatches: (current: number, total: number): string =>
+    `${current} of ${total}`,
 };
 
 export default base;
