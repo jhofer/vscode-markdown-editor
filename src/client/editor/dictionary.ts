@@ -61,6 +61,7 @@ export const base = {
   warning: "Warning",
   warningNotice: "Warning notice",
   plantUml: "PlantUML diagram",
+  mermaid: "Mermaid diagram",
 };
 
 export default base;

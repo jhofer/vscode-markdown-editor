@@ -15,6 +15,7 @@ Perfect for writing docs, authoring blog posts, and editing markdown website con
 * **Edit links** with `Ctrl+K` / `Cmd+K` — opens a two-field dialog to set or update both the link title and URL; works on new text selections and on existing links with pre-populated values
 * PlantUML blocks with side-by-side source editing and live diagram preview
 * Theme-aware PlantUML rendering with optional styled skinparams (`' vscode-style`)
+* ` ```mermaid ` blocks with the same side-by-side source editing and live preview — rendered in the webview, so no Java (or any other prerequisite) is required, and the diagram picks up the editor's theme colors automatically
 * **AI-powered completion suggestions** using GitHub Copilot (when available)
 * Smart completion that respects line endings and markdown context
 * Tab to accept, Escape to dismiss AI suggestions

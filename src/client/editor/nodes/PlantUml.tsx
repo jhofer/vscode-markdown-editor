@@ -1,91 +1,20 @@
 import * as React from "react";
-import { textblockTypeInputRule } from "prosemirror-inputrules";
-import { NodeSelection } from "prosemirror-state";
-import styled from "styled-components";
-import { basicSetup, EditorView as CMView } from "codemirror";
-import { EditorState as CMState } from "@codemirror/state";
 import Node from "./Node";
 import plantumlRule from "../rules/plantuml";
-import InlinePanZoomViewer from "../components/InlinePanZoomViewer";
+import DiagramEditorView, {
+  DiagramRenderResult,
+} from "../components/DiagramEditorView";
 import { getEditorSettings } from "../lib/editorSettings";
+import {
+  getCssVar,
+  getCssVarFirst,
+  toHexColor,
+} from "../lib/vscodeThemeColors";
 
 const DEFAULT_DIAGRAM = `' vscode-style
 ' vscode-style opt-in allows using the editor's theme colors in the diagram for better integration.
 Alice -> Bob: Authentication Request
 Bob --> Alice: Authentication Response`;
-
-let plantUmlRenderQueue: Promise<void> = Promise.resolve();
-
-function queuePlantUmlRender<T>(task: () => Promise<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    plantUmlRenderQueue = plantUmlRenderQueue
-      .then(async () => {
-        const result = await task();
-        resolve(result);
-      })
-      .catch(reject);
-  });
-}
-
-
-function getCssVar(name: string, fallback: string): string {
-  if (typeof window === "undefined" || !window.getComputedStyle) {
-    return fallback;
-  }
-
-  const rootValue = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-  if (rootValue) {
-    return rootValue;
-  }
-
-  const bodyValue = document.body
-    ? getComputedStyle(document.body).getPropertyValue(name).trim()
-    : "";
-  return bodyValue || fallback;
-}
-
-function isLowAlphaRgba(value: string): boolean {
-  const match = value.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\s*\)/i);
-  if (!match) {
-    return false;
-  }
-
-  const alpha = Number(match[1]);
-  return Number.isFinite(alpha) && alpha < 0.45;
-}
-
-function toHexColor(value: string): string {
-  const match = value.match(
-    /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*[0-9.]+\s*)?\)$/i
-  );
-
-  if (!match) {
-    return value;
-  }
-
-  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
-  const toByteHex = (n: number) => clamp(n).toString(16).padStart(2, "0");
-
-  const r = Number(match[1]);
-  const g = Number(match[2]);
-  const b = Number(match[3]);
-
-  return `#${toByteHex(r)}${toByteHex(g)}${toByteHex(b)}`;
-}
-
-function getCssVarFirst(names: string[], fallback: string): string {
-  for (const name of names) {
-    const value = getCssVar(name, "");
-    if (!value || isLowAlphaRgba(value)) {
-      continue;
-    }
-    return toHexColor(value);
-  }
-
-  return toHexColor(fallback);
-}
 
 function getPlantUmlSkinparamBlock(): string {
   const background = toHexColor(
@@ -274,136 +203,6 @@ function hasThemedStyleOptIn(source: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Lightweight CodeMirror-based code editor component
-// ---------------------------------------------------------------------------
-
-const cmTheme = CMView.theme(
-  {
-    "&": {
-      fontSize: "13px",
-      flex: "1",
-      overflow: "hidden",
-      display: "flex",
-      flexDirection: "column",
-    },
-    ".cm-scroller": {
-      fontFamily:
-        "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
-      overflow: "auto",
-      lineHeight: "1.5",
-      flex: "1",
-    },
-    ".cm-content": {
-      padding: "8px 10px",
-      minHeight: "160px",
-      caretColor: "var(--vscode-editor-foreground, #d4d4d4)",
-    },
-    ".cm-editor": {
-      background:
-        "var(--vscode-input-background, var(--vscode-editor-background, #1e1e1e))",
-      color: "var(--vscode-editor-foreground, #d4d4d4)",
-    },
-    "&.cm-focused": { outline: "none" },
-    ".cm-gutters": {
-      background:
-        "var(--vscode-editorGutter-background, var(--vscode-editor-background, #1e1e1e))",
-      color: "var(--vscode-editorLineNumber-foreground, #858585)",
-      borderRight:
-        "1px solid var(--vscode-editorIndentGuide-background, rgba(255,255,255,0.1))",
-    },
-    ".cm-activeLineGutter": {
-      background:
-        "var(--vscode-editor-lineHighlightBackground, rgba(255,255,255,0.04))",
-    },
-    ".cm-activeLine": {
-      background:
-        "var(--vscode-editor-lineHighlightBackground, rgba(255,255,255,0.04))",
-    },
-    ".cm-selectionBackground, ::selection": {
-      background: "var(--vscode-editor-selectionBackground, #264f78) !important",
-    },
-    ".cm-cursor": {
-      borderLeftColor: "var(--vscode-editor-foreground, #d4d4d4)",
-    },
-  },
-  { dark: true }
-);
-
-type CodeMirrorEditorProps = {
-  value: string;
-  onChange: (value: string) => void;
-};
-
-const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
-  value,
-  onChange,
-}) => {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const viewRef = React.useRef<CMView | null>(null);
-  const onChangeRef = React.useRef(onChange);
-  const syncingRef = React.useRef(false);
-
-  // Keep the callback ref current without recreating the editor.
-  React.useEffect(() => {
-    onChangeRef.current = onChange;
-  });
-
-  // Create the CodeMirror instance once on mount.
-  React.useEffect(() => {
-    if (!containerRef.current) return;
-
-    const view = new CMView({
-      state: CMState.create({
-        doc: value,
-        extensions: [
-          basicSetup,
-          cmTheme,
-          CMView.updateListener.of((update) => {
-            if (update.docChanged && !syncingRef.current) {
-              onChangeRef.current(update.state.doc.toString());
-            }
-          }),
-        ],
-      }),
-      parent: containerRef.current,
-    });
-
-    viewRef.current = view;
-    view.focus();
-
-    return () => {
-      view.destroy();
-      viewRef.current = null;
-    };
-  }, []);
-
-  // Sync external value changes (e.g., undo/redo) into CodeMirror.
-  React.useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    const currentDoc = view.state.doc.toString();
-    if (currentDoc !== value) {
-      syncingRef.current = true;
-      view.dispatch({
-        changes: { from: 0, to: currentDoc.length, insert: value },
-      });
-      syncingRef.current = false;
-    }
-  }, [value]);
-
-  return (
-    // stopPropagation prevents the outer ProseMirror handleSelect from
-    // eating mouse events needed for cursor placement inside the editor.
-    <div
-      style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}
-      onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
-    >
-      <div ref={containerRef} style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }} />
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
 // React component rendered for each plantuml node
 // ---------------------------------------------------------------------------
 
@@ -413,7 +212,9 @@ type Props = {
   isEditable: boolean;
   getPos: () => number;
   view: any; // EditorView
-  renderPlantUml?: (source: string) => Promise<{ imageData: string }>;
+  renderPlantUml?: (
+    source: string
+  ) => Promise<{ imageData: string; mimeType?: string }>;
 };
 
 const PlantUmlView: React.FC<Props> = ({
@@ -424,232 +225,53 @@ const PlantUmlView: React.FC<Props> = ({
   view,
   renderPlantUml,
 }) => {
-  const renderIdRef = React.useRef(0);
-  const renderTimeoutRef = React.useRef<number | undefined>(undefined);
-  const [previewSource, setPreviewSource] = React.useState<string>(
-    node.textContent
-  );
-  const [imageData, setImageData] = React.useState<string>("");
-  const [isRendering, setIsRendering] = React.useState(false);
-  const [renderError, setRenderError] = React.useState<string | undefined>(
-    undefined
-  );
-  const [imageLoadError, setImageLoadError] = React.useState<string | undefined>(
-    undefined
-  );
-  const [isThemedStyle, setIsThemedStyle] = React.useState(false);
+  const render = React.useMemo(() => {
+    if (!renderPlantUml) {
+      return undefined;
+    }
 
-  React.useEffect(() => {
-    setPreviewSource(node.textContent);
-  }, [node.textContent]);
-
-  const requestRender = React.useCallback(
-    async (source: string) => {
-      if (!renderPlantUml) {
-        setRenderError("PlantUML renderer is not available");
-        setImageData("");
-        return;
-      }
-
+    return async (source: string): Promise<DiagramRenderResult> => {
       const applyThemedStyle = hasThemedStyleOptIn(source);
       const themedSource = applyThemedStyle
         ? withThemedSkinparams(source)
         : source;
 
-      const currentRenderId = ++renderIdRef.current;
-      setIsRendering(true);
+      let result: { imageData: string } | undefined;
 
       try {
-        let result: { imageData: string } | undefined;
-
-        try {
-          result = await queuePlantUmlRender(() => renderPlantUml(themedSource));
-        } catch {
-          if (themedSource !== source) {
-            result = await queuePlantUmlRender(() => renderPlantUml(source));
-          } else {
-            throw new Error("PlantUML themed render failed");
-          }
-        }
-
-        if (!result?.imageData && themedSource !== source) {
-          result = await queuePlantUmlRender(() => renderPlantUml(source));
-        }
-
-        if (currentRenderId !== renderIdRef.current) {
-          return;
-        }
-
-        const payload = result?.imageData || "";
-        if (!payload) {
-          setImageData("");
-          setRenderError("PlantUML returned no image data");
-          return;
-        }
-
-        if (!payload.startsWith("data:image/")) {
-          setImageData("");
-          setRenderError("PlantUML returned an unexpected image payload");
-          return;
-        }
-
-        setImageLoadError(undefined);
-        setIsThemedStyle(applyThemedStyle);
-        setImageData(payload);
-        setRenderError(undefined);
-      } catch (error) {
-        if (currentRenderId !== renderIdRef.current) {
-          return;
-        }
-        console.error("Failed to render PlantUML diagram:", error);
-        setImageData("");
-        setRenderError(String(error));
-      } finally {
-        if (currentRenderId === renderIdRef.current) {
-          setIsRendering(false);
+        result = await renderPlantUml(themedSource);
+      } catch {
+        if (themedSource !== source) {
+          result = await renderPlantUml(source);
+        } else {
+          throw new Error("PlantUML themed render failed");
         }
       }
-    },
-    [renderPlantUml]
-  );
 
-  React.useEffect(() => {
-    const source = previewSource.trim();
-    if (!source) {
-      setImageData("");
-      setRenderError(undefined);
-      setImageLoadError(undefined);
-      setIsRendering(false);
-      return;
-    }
-
-    if (renderTimeoutRef.current !== undefined) {
-      window.clearTimeout(renderTimeoutRef.current);
-    }
-
-    renderTimeoutRef.current = window.setTimeout(() => {
-      void requestRender(source);
-    }, 250);
-
-    return () => {
-      if (renderTimeoutRef.current !== undefined) {
-        window.clearTimeout(renderTimeoutRef.current);
+      if (!result?.imageData && themedSource !== source) {
+        result = await renderPlantUml(source);
       }
+
+      return {
+        imageData: result?.imageData || "",
+        whiteBackground: !applyThemedStyle,
+      };
     };
-  }, [previewSource, requestRender]);
-
-  const handleCodeMirrorChange = React.useCallback(
-    (newSource: string) => {
-      if (!view) {
-        return;
-      }
-
-      setPreviewSource(newSource);
-
-      const pos = getPos();
-      const { tr, doc, schema } = view.state;
-      const nodeAtPos = doc.nodeAt(pos);
-      if (nodeAtPos) {
-        const content = newSource ? schema.text(newSource) : null;
-        const newNode = nodeAtPos.type.create(nodeAtPos.attrs, content);
-        const transaction = tr.replaceWith(
-          pos,
-          pos + nodeAtPos.nodeSize,
-          newNode
-        );
-
-        // Keep the diagram node selected while editing so multiline input
-        // (for example pressing Enter) does not collapse back to view mode.
-        transaction.setSelection(NodeSelection.create(transaction.doc, pos));
-        view.dispatch(transaction);
-      }
-    },
-    [getPos, view]
-  );
-
-  const handleSelect = React.useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-
-      if (!view) {
-        return;
-      }
-
-      const pos = getPos();
-      const $pos = view.state.doc.resolve(pos);
-      const transaction = view.state.tr.setSelection(new NodeSelection($pos));
-      view.dispatch(transaction);
-    },
-    [getPos, view]
-  );
-
-  const enterEditMode = React.useCallback(() => {
-    if (!view || !isEditable) {
-      return;
-    }
-    const pos = getPos();
-    const $pos = view.state.doc.resolve(pos);
-    const transaction = view.state.tr.setSelection(new NodeSelection($pos));
-    view.dispatch(transaction);
-  }, [getPos, isEditable, view]);
-
-  if (isSelected && isEditable) {
-    return (
-      <div onMouseDown={handleSelect}>
-        <EditorContainer>
-          <SourcePane>
-            <PaneLabel>PlantUML</PaneLabel>
-            <CodeMirrorEditor
-              value={previewSource}
-              onChange={handleCodeMirrorChange}
-            />
-          </SourcePane>
-          <PreviewPane>
-            <PaneLabel>Preview</PaneLabel>
-            {renderError ? (
-              <ErrorMessage>
-                <strong>Render failed.</strong>
-                <br />
-                {renderError}
-              </ErrorMessage>
-            ) : isRendering ? (
-              <LoadingMessage>Rendering diagram...</LoadingMessage>
-            ) : imageData ? (
-              <PreviewImage
-                $whiteBackground={!isThemedStyle}
-                src={imageData}
-                alt="PlantUML Preview"
-                onError={() =>
-                  setImageLoadError("Rendered image could not be displayed")
-                }
-              />
-            ) : (
-              <LoadingMessage>Enter PlantUML source to preview.</LoadingMessage>
-            )}
-            {imageLoadError ? <ErrorMessage>{imageLoadError}</ErrorMessage> : null}
-          </PreviewPane>
-        </EditorContainer>
-      </div>
-    );
-  }
+  }, [renderPlantUml]);
 
   return (
-    <div>
-      <DiagramContainer>
-        {renderError || imageLoadError || !imageData ? (
-          <FallbackPre>{previewSource}</FallbackPre>
-        ) : (
-          <InlinePanZoomViewer
-            src={imageData}
-            alt="PlantUML diagram"
-            maxWidth={920}
-            maxHeight={520}
-            whiteBackground={!isThemedStyle}
-            onEdit={isEditable ? enterEditMode : undefined}
-          />
-        )}
-      </DiagramContainer>
-    </div>
+    <DiagramEditorView
+      node={node}
+      isSelected={isSelected}
+      isEditable={isEditable}
+      getPos={getPos}
+      view={view}
+      label="PlantUML"
+      queueKey="plantuml"
+      whiteBackground
+      render={render}
+      rendererUnavailableMessage="PlantUML renderer is not available"
+    />
   );
 };
 
@@ -776,84 +398,3 @@ export default class PlantUml extends Node {
     };
   }
 }
-
-const EditorContainer = styled.div`
-  display: flex;
-  border: 1px solid ${props => props.theme.divider};
-  border-radius: 4px;
-  overflow: hidden;
-  margin: 8px 0;
-  min-height: 200px;
-`;
-
-const SourcePane = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid ${props => props.theme.divider};
-  min-width: 0;
-`;
-
-const PreviewPane = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 8px;
-  overflow: auto;
-  min-width: 0;
-`;
-
-const PaneLabel = styled.div`
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: ${props => props.theme.textSecondary};
-  padding: 6px 10px 4px;
-  border-bottom: 1px solid ${props => props.theme.divider};
-  background: ${props => props.theme.codeBackground || props.theme.background};
-`;
-
-
-type DiagramImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
-  $whiteBackground?: boolean;
-};
-
-const PreviewImage = styled.img<DiagramImageProps>`
-  max-width: 100%;
-  height: auto;
-  display: block;
-  background: ${props => (props.$whiteBackground ? "#ffffff" : "transparent")};
-  padding: ${props => (props.$whiteBackground ? "8px" : "0")};
-  border-radius: ${props => (props.$whiteBackground ? "4px" : "0")};
-`;
-
-const ErrorMessage = styled.p`
-  color: ${props => props.theme.textSecondary};
-  font-size: 13px;
-  text-align: center;
-  padding: 16px;
-`;
-
-const LoadingMessage = styled.p`
-  color: ${props => props.theme.textSecondary};
-  font-size: 13px;
-  text-align: center;
-  padding: 16px;
-`;
-
-const DiagramContainer = styled.div`
-  margin: 8px 0;
-`;
-
-const FallbackPre = styled.pre`
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 13px;
-  background: ${props => props.theme.codeBackground || props.theme.background};
-  padding: 10px;
-  border-radius: 4px;
-  overflow: auto;
-  color: ${props => props.theme.code};
-`;

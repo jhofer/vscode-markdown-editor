@@ -132,6 +132,12 @@ export default function blockMenuItems(
       keywords: "plantuml uml diagram sequence",
     },
     {
+      name: "mermaid",
+      title: dictionary.mermaid,
+      icon: CodeIcon,
+      keywords: "mermaid diagram flowchart sequence gantt class",
+    },
+    {
       name: "separator",
     },
     {

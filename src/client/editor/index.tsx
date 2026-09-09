@@ -30,6 +30,7 @@ import Extension from "./lib/Extension";
 import ExtensionManager from "./lib/ExtensionManager";
 import ComponentView from "./lib/ComponentView";
 import headingToSlug from "./lib/headingToSlug";
+import { renderMermaid } from "./lib/mermaidRenderer";
 
 // styles
 import { StyledEditor } from "./styles/editor";
@@ -60,6 +61,7 @@ import Notice from "./nodes/Notice";
 import OrderedList from "./nodes/OrderedList";
 import Frontmatter from "./nodes/Frontmatter";
 import PlantUml from "./nodes/PlantUml";
+import Mermaid from "./nodes/Mermaid";
 import Paragraph from "./nodes/Paragraph";
 import Table from "./nodes/Table";
 import TableCell from "./nodes/TableCell";
@@ -556,6 +558,9 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
           }),
           new PlantUml({
             onRenderPlantUml: this.props.onRenderPlantUml,
+          }),
+          new Mermaid({
+            onRenderMermaid: renderMermaid,
           }),
           new Emoji(),
           new Text(),

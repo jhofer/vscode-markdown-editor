@@ -22,6 +22,7 @@ import Notice from "./nodes/Notice";
 import OrderedList from "./nodes/OrderedList";
 import Frontmatter from "./nodes/Frontmatter";
 import PlantUml from "./nodes/PlantUml";
+import Mermaid from "./nodes/Mermaid";
 import Paragraph from "./nodes/Paragraph";
 import Table from "./nodes/Table";
 import TableCell from "./nodes/TableCell";
@@ -51,6 +52,7 @@ const extensions = new ExtensionManager([
   new CodeFence(),
   new Frontmatter(),
   new PlantUml(),
+  new Mermaid(),
   new CheckboxList(),
   new CheckboxItem(),
   new Embed(),

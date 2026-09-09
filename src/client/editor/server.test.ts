@@ -250,6 +250,79 @@ Alice -> Bob: Hello
   expect(plantumlNode.content[0].text).toBe("Alice -> Bob: Hello");
 });
 
+// --- Mermaid fenced code blocks ---
+
+test("parses mermaid fenced code block into a mermaid node", () => {
+  const md = `\`\`\`mermaid
+flowchart TD
+  A[Start] --> B{Decision}
+  B -->|Yes| C[Done]
+\`\`\``;
+  const ast = parser.parse(md);
+  const json = ast.toJSON();
+  const mermaidNode = json.content.find((n: any) => n.type === "mermaid");
+  expect(mermaidNode).toBeDefined();
+  expect(mermaidNode.content[0].text).toBe(
+    "flowchart TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Done]"
+  );
+});
+
+test("roundtrip mermaid stays byte-identical", () => {
+  const md = `\`\`\`mermaid
+flowchart TD
+  A[Start] --> B{Decision}
+  B -->|Yes| C[Done]
+\`\`\``;
+  const ast = parser.parse(md);
+  const output = serializer.serialize(ast, undefined);
+  expect(output.trim()).toBe(md.trim());
+});
+
+test("parses mermaid fenced code block surrounded by prose", () => {
+  const md = `Some text before
+
+\`\`\`mermaid
+sequenceDiagram
+  Alice->>Bob: Hi
+\`\`\`
+
+Some text after`;
+  const ast = parser.parse(md);
+  const json = ast.toJSON();
+  const mermaidNode = json.content.find((n: any) => n.type === "mermaid");
+  expect(mermaidNode).toBeDefined();
+  expect(mermaidNode.content[0].text).toBe("sequenceDiagram\n  Alice->>Bob: Hi");
+
+  const output = serializer.serialize(ast, undefined);
+  expect(output).toContain("Some text before");
+  expect(output).toContain("```mermaid");
+  expect(output).toContain("sequenceDiagram");
+  expect(output).toContain("Some text after");
+});
+
+test("mermaid info string is matched case-insensitively", () => {
+  const md = `\`\`\`Mermaid
+flowchart TD
+  A --> B
+\`\`\``;
+  const ast = parser.parse(md);
+  const json = ast.toJSON();
+  expect(json.content.find((n: any) => n.type === "mermaid")).toBeDefined();
+});
+
+test("a non-mermaid fenced code block is left as a normal code block", () => {
+  const md = `\`\`\`ts
+const a = 1;
+\`\`\``;
+  const ast = parser.parse(md);
+  const json = ast.toJSON();
+  expect(json.content.find((n: any) => n.type === "mermaid")).toBeUndefined();
+  const codeNode = json.content.find((n: any) => n.type === "code_block");
+  expect(codeNode).toBeDefined();
+  expect(codeNode.attrs.language).toBe("ts");
+  expect(codeNode.content[0].text).toBe("const a = 1;");
+});
+
 test("detects svg image sources for scalable viewing", () => {
   expect(isSvgImageSource("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")).toBe(
     true
