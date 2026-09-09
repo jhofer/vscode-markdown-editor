@@ -25,6 +25,7 @@ import SelectionToolbar from "./components/SelectionToolbar";
 import BlockMenu from "./components/BlockMenu";
 import EmojiMenu from "./components/EmojiMenu";
 import LinkToolbar from "./components/LinkToolbar";
+import SearchToolbar from "./components/SearchToolbar";
 import Tooltip from "./components/Tooltip";
 import Extension from "./lib/Extension";
 import ExtensionManager from "./lib/ExtensionManager";
@@ -89,6 +90,7 @@ import History from "./plugins/History";
 import Keys from "./plugins/Keys";
 import MaxLength from "./plugins/MaxLength";
 import Placeholder from "./plugins/Placeholder";
+import Search from "./plugins/Search";
 import SmartText from "./plugins/SmartText";
 import TrailingNode from "./plugins/TrailingNode";
 import PasteHandler from "./plugins/PasteHandler";
@@ -184,6 +186,7 @@ type State = {
   linkMenuOpen: boolean;
   blockMenuSearch: string;
   emojiMenuOpen: boolean;
+  searchOpen: boolean;
 };
 
 type Step = {
@@ -220,6 +223,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     linkMenuOpen: false,
     blockMenuSearch: "",
     emojiMenuOpen: false,
+    searchOpen: false,
   };
 
   isBlurred: boolean;
@@ -629,6 +633,10 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             onDismissCompletion: this.dismissCompletion,
             hasPendingCompletion: this.hasPendingCompletionRequest,
           }),
+          new Search({
+            onOpen: this.handleOpenSearch,
+            onClose: this.handleCloseSearch,
+          }),
           new BlockMenuTrigger({
             dictionary,
             onOpen: this.handleOpenBlockMenu,
@@ -925,6 +933,15 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     this.setState({ blockMenuOpen: false });
   };
 
+  handleOpenSearch = () => {
+    this.setState({ searchOpen: true });
+  };
+
+  handleCloseSearch = () => {
+    if (!this.state.searchOpen) return;
+    this.setState({ searchOpen: false });
+  };
+
   handleSelectRow = (index: number, state: EditorState) => {
     this.view.dispatch(selectRow(index)(state.tr));
   };
@@ -1034,6 +1051,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
                   dictionary={dictionary}
                   commands={this.commands}
                   rtl={isRTL}
+                  isSearchActive={this.state.searchOpen}
                   isTemplate={this.props.template === true}
                   onOpen={this.handleOpenSelectionMenu}
                   onClose={this.handleCloseSelectionMenu}
@@ -1041,6 +1059,13 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
                   onClickLink={this.props.onClickLink}
                   onCreateLink={this.props.onCreateLink}
                   tooltip={tooltip}
+                />
+                <SearchToolbar
+                  view={this.view}
+                  dictionary={dictionary}
+                  isActive={this.state.searchOpen}
+                  onOpen={this.handleOpenSearch}
+                  onClose={this.handleCloseSearch}
                 />
                 <LinkToolbar
                   view={this.view}
