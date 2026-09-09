@@ -2,7 +2,7 @@ import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
 import { EditorView } from "prosemirror-view";
-import { TextSelection } from "prosemirror-state";
+import { TextSelection, Transaction } from "prosemirror-state";
 import {
   SearchQuery,
   setSearchState,
@@ -32,6 +32,29 @@ function isModF(event: KeyboardEvent) {
   );
 }
 
+/**
+ * Bring the current match into view. `prosemirror-search`'s own
+ * `tr.scrollIntoView()` is unreliable here (the scroll container is the
+ * webview's `.container`, not the editor node), so nudge the DOM node at the
+ * selection head as well. `block: "nearest"` is a no-op when it's already
+ * visible, so this won't fight ProseMirror or jitter on repeated presses.
+ */
+function scrollMatchIntoView(view: EditorView) {
+  const { from, to } = view.state.selection;
+  if (from === to) {
+    return;
+  }
+  let node: Node | null;
+  try {
+    node = view.domAtPos(from).node;
+  } catch {
+    return;
+  }
+  const el =
+    node && node.nodeType === 3 ? node.parentElement : (node as HTMLElement | null);
+  el?.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
 export default function SearchToolbar({
   view,
   isActive,
@@ -54,15 +77,20 @@ export default function SearchToolbar({
   const applyQuery = useCallback(
     (q: SearchQuery, jumpToFirst: boolean) => {
       let tr = setSearchState(view.state.tr, q.valid ? q : emptyQuery);
+      let jumped = false;
       if (jumpToFirst && q.valid) {
         const first = q.findNext(view.state, 0);
         if (first) {
           tr = tr
             .setSelection(TextSelection.create(tr.doc, first.from, first.to))
             .scrollIntoView();
+          jumped = true;
         }
       }
       view.dispatch(tr);
+      if (jumped) {
+        window.requestAnimationFrame(() => scrollMatchIntoView(view));
+      }
     },
     [view]
   );
@@ -89,15 +117,23 @@ export default function SearchToolbar({
     }
   }, []);
 
+  // `view.dispatch` is not auto-bound; pass a bound wrapper or the command's
+  // internal `dispatch(tr)` call throws and navigation silently does nothing.
+  const dispatch = useCallback((tr: Transaction) => view.dispatch(tr), [view]);
+
   const goNext = useCallback(() => {
-    findNext(view.state, view.dispatch, view);
+    if (findNext(view.state, dispatch, view)) {
+      window.requestAnimationFrame(() => scrollMatchIntoView(view));
+    }
     inputRef.current?.focus();
-  }, [view]);
+  }, [view, dispatch]);
 
   const goPrev = useCallback(() => {
-    findPrev(view.state, view.dispatch, view);
+    if (findPrev(view.state, dispatch, view)) {
+      window.requestAnimationFrame(() => scrollMatchIntoView(view));
+    }
     inputRef.current?.focus();
-  }, [view]);
+  }, [view, dispatch]);
 
   // Re-run the query whenever the term / case-sensitivity changes while open.
   useEffect(() => {
