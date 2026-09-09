@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump to apply"
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+
+# Never let two releases bump/publish the same version concurrently.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # The version-bump commit this job pushes is tagged [skip ci] so it cannot
+    # trigger another release (GITHUB_TOKEN pushes don't re-trigger anyway).
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # @azure/identity (via @vscode/vsce) requires node >= 22.
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        run: |
+          npm version "${{ inputs.bump || 'patch' }}" -m "chore(release): v%s [skip ci]"
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Package extension
+        id: package
+        run: |
+          npm run package
+          echo "vsix=$(ls -1 *.vsix | head -n1)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: npx --no vsce publish --no-dependencies --packagePath "${{ steps.package.outputs.vsix }}"
+
+      # Only pushed once the marketplace has accepted the build, so a failed
+      # publish leaves main untouched and the same version is retried.
+      - name: Push version bump and tag
+        run: git push --follow-tags origin HEAD:main
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.bump.outputs.version }}" \
+            --generate-notes \
+            "${{ steps.package.outputs.vsix }}"
