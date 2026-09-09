@@ -68,7 +68,15 @@ export default function SearchToolbar({
   );
 
   const close = useCallback(() => {
-    view.dispatch(setSearchState(view.state.tr, emptyQuery));
+    const { state } = view;
+    let tr = setSearchState(state.tr, emptyQuery);
+    // Collapse the selection that navigation left on the last match so the
+    // formatting toolbar doesn't pop up the moment search closes; the caret
+    // lands at the end of that match, ready for editing.
+    if (!state.selection.empty) {
+      tr = tr.setSelection(TextSelection.create(tr.doc, state.selection.to));
+    }
+    view.dispatch(tr);
     onClose();
     view.focus();
   }, [view, onClose]);

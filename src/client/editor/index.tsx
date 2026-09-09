@@ -1045,6 +1045,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
                   dictionary={dictionary}
                   commands={this.commands}
                   rtl={isRTL}
+                  isSearchActive={this.state.searchOpen}
                   isTemplate={this.props.template === true}
                   onOpen={this.handleOpenSelectionMenu}
                   onClose={this.handleCloseSelectionMenu}
