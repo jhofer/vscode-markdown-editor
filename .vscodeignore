@@ -11,7 +11,6 @@ eslint.config.js
 jest.config.ts
 jest-md-transformer.js
 tsconfig.json
-.npmrc
 **/*.map
 coverage/**
 *.vsix
@@ -22,3 +21,7 @@ ZVP.wiki/**
 testfolder/**
 todo.md
 CLAUDE.md
+.plans/**
+.attachments/**
+problem-file.md
+.npmrc
