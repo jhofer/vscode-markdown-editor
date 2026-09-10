@@ -1,7 +1,7 @@
 {
   "name": "inkwell-md",
   "displayName": "inkwell.md",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "description": "Edit markdown files in preview mode with a rich text editor",
   "categories": [
     "Formatters",
@@ -83,9 +83,9 @@
   "license": "ISC",
   "scripts": {
     "prepare:plantuml-assets": "node ./scripts/preparePlantumlAssets.js",
-    "vscode:prepublish": "npm run prepare:plantuml-assets && npm run build",
-    "build": "npm run esbuild-client --  --minify  && npm run esbuild-extension --  --minify ",
-    "build-debug": "npm run esbuild-client && npm run esbuild-extension",
+    "vscode:prepublish": "npm run build",
+    "build": "npm run prepare:plantuml-assets && npm run esbuild-client --  --minify  && npm run esbuild-extension --  --minify ",
+    "build-debug": "npm run prepare:plantuml-assets && npm run esbuild-client && npm run esbuild-extension",
     "esbuild-extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap --sources-content=true",
     "esbuild-client": "esbuild ./src/client --bundle --outfile=out/client.js --sourcemap=inline --sources-content=true",
     "watch-client": "npm run esbuild-client -- --watch",
@@ -93,14 +93,14 @@
     "lint": "eslint .",
     "test": "jest",
     "update-vsce-login": "vsce login jhofer",
-    "package": "npm run prepare:plantuml-assets && vsce package --no-dependencies",
-    "publish:latest": "npm run prepare:plantuml-assets && vsce publish --pre-release --no-dependencies",
-    "publish:release": "npm run prepare:plantuml-assets && vsce publish --no-dependencies",
-    "publish:patch": "npm run prepare:plantuml-assets && vsce publish patch --pre-release --no-dependencies",
-    "publish:minor": "npm run prepare:plantuml-assets && vsce publish minor --pre-release --no-dependencies",
-    "publish:major": "npm run prepare:plantuml-assets && vsce publish major --pre-release --no-dependencies",
-    "publish:preview": "npm run prepare:plantuml-assets && vsce publish --pre-release --no-dependencies",
-    "publish:fast": "npm version patch && npm run prepare:plantuml-assets && npm run build && vsce publish --pre-release --no-dependencies"
+    "package": "vsce package --no-dependencies",
+    "publish:latest": "vsce publish --pre-release --no-dependencies",
+    "publish:release": "vsce publish --no-dependencies",
+    "publish:patch": "vsce publish patch --pre-release --no-dependencies",
+    "publish:minor": "vsce publish minor --pre-release --no-dependencies",
+    "publish:major": "vsce publish major --pre-release --no-dependencies",
+    "publish:preview": "vsce publish --pre-release --no-dependencies",
+    "publish:fast": "npm version patch && npm run build && vsce publish --pre-release --no-dependencies"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
