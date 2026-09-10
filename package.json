@@ -94,13 +94,13 @@
     "test": "jest",
     "update-vsce-login": "vsce login jhofer",
     "package": "vsce package --no-dependencies",
-    "publish:latest": "vsce publish --pre-release --no-dependencies",
+    "publish:latest": "vsce publish --no-dependencies",
     "publish:release": "vsce publish --no-dependencies",
-    "publish:patch": "vsce publish patch --pre-release --no-dependencies",
-    "publish:minor": "vsce publish minor --pre-release --no-dependencies",
-    "publish:major": "vsce publish major --pre-release --no-dependencies",
+    "publish:patch": "vsce publish patch --no-dependencies",
+    "publish:minor": "vsce publish minor --no-dependencies",
+    "publish:major": "vsce publish major --no-dependencies",
     "publish:preview": "vsce publish --pre-release --no-dependencies",
-    "publish:fast": "npm version patch && npm run build && vsce publish --pre-release --no-dependencies"
+    "publish:fast": "npm version patch && npm run build && vsce publish --no-dependencies"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
