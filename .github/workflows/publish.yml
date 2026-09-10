@@ -26,9 +26,8 @@ jobs:
           # it fails on the React 19 peer ranges of outline-icons /
           # react-portal. Mirrors --no-dependencies in the npm scripts.
           dependencies: false
-          # Matches the --pre-release npm publish scripts; every published
-          # version so far is a pre-release.
-          preRelease: true
+          # Publish to the stable channel.
+          preRelease: false
           # Pushes to main that don't bump the version are a no-op instead
           # of a failed run.
           skipDuplicate: true
