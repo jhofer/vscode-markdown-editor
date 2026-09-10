@@ -1,27 +1,18 @@
-**/*.ts
-**/tsconfig.json
-.vscode/**
-.github/**
-src/**
-scripts/**
-node_modules/**
-.gitignore
-.eslintrc.js
-eslint.config.js
-jest.config.ts
-jest-md-transformer.js
-tsconfig.json
-**/*.map
-coverage/**
-*.vsix
-.worktrees/**
-.claude/**
-zvp.WIKI/**
-ZVP.wiki/**
-testfolder/**
-todo.md
-CLAUDE.md
-.plans/**
-.attachments/**
-problem-file.md
-.npmrc
+# Allowlist, not a blocklist: everything is excluded first, then only the
+# files the installed extension actually needs are added back. A new
+# top-level folder is therefore never shipped by accident — add it here
+# explicitly if it belongs in the package.
+#
+# Negations always win in vsce, so list files, not directories: `!out/**`
+# would drag the sourcemaps back in too.
+**
+
+!package.json
+!README.md
+!LICENSE
+!icon.png
+!demo.gif
+!out/extension.js
+!out/client.js
+!out/client.css
+!vendor/plantuml.jar
