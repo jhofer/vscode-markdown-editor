@@ -464,8 +464,20 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     if (this.props.value && prevProps.value !== this.props.value) {
       const currentContent = this.value();
       if (!isBasicallySame(this.props.value, currentContent)) {
-        const newState = this.createState(this.props.value);
+        // Recreating the doc from markdown loses the previous ProseMirror
+        // selection entirely, and EditorState.create() defaults an unset
+        // selection to the very start of the document. Without restoring it
+        // explicitly, every externally-driven value update (e.g. an echo of
+        // our own edit coming back from the host, possibly reformatted)
+        // yanks the cursor back to the top of the document - very noticeable
+        // when typing quickly in larger documents where these updates land
+        // mid-typing. Preserve the caret's character offset (clamped to the
+        // new document's size) and restore focus if the editor had it.
+        const hadFocus = this.view.hasFocus();
+        const { head } = this.view.state.selection;
+        const newState = this.createState(this.props.value, head);
         this.view.updateState(newState);
+        if (hadFocus) this.view.focus();
       }
     }
 
@@ -757,12 +769,24 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     });
   }
 
-  createState(value?: string) {
+  createState(value?: string, selectionPos?: number) {
     const doc = this.createDocument(value || this.props.defaultValue);
+
+    // Clamp the requested caret offset into the new document's bounds and
+    // resolve it to the nearest valid selection (e.g. when the new doc is
+    // shorter than the old one, or the offset now falls inside a node that
+    // can't hold a plain text selection).
+    const selection =
+      selectionPos === undefined
+        ? undefined
+        : Selection.near(
+            doc.resolve(Math.min(selectionPos, doc.content.size))
+          );
 
     return EditorState.create({
       schema: this.schema,
       doc,
+      selection,
       plugins: [
         ...this.plugins,
         ...this.keymaps,
