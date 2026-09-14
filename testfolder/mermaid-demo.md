@@ -49,7 +49,7 @@ flowchart LR
   consumer -->|"HTTPS / JSON\n(sync, READ)"| sys
   sys -->|"HTTPS / JSON\n(sync, WRITE)"| provider
   sys -->|"MQ / JSON\n(async, WRITE)"| queue
-  sys -.->|"OAuth2 / JWT\n(authentication"| iam
+  sys -.->|"OAuth2 / JWT\n(authentication)"| iam
 
   %% Notes:
   %% - Show protocol/format and sync/async
