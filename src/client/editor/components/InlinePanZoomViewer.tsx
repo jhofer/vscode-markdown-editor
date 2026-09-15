@@ -6,6 +6,88 @@ import {
   ViewerContext,
   ViewerProvider,
 } from "react-viewer-pan-zoom";
+import { isSvgImageSource, decodeSvgDataUri } from "./ViewerImage";
+
+// Zooming is implemented as a CSS `transform: scale()` on the rendered image
+// (see buildViewerSettings below / react-viewer-pan-zoom). A plain <img> of an
+// SVG data URI gets rasterized once at its laid-out box size, and that fixed
+// bitmap is what the compositor then stretches — so large diagrams turn
+// pixelated at higher zoom. Rendering the SVG inline in the DOM instead keeps
+// it vector at any zoom level. PlantUML/Mermaid also stamp the root <svg>
+// with an intrinsic pixel width/height (attribute and/or inline `style`)
+// which would otherwise fight the container's CSS sizing, so that is
+// stripped in favor of width/height: 100%.
+function normalizeInlineSvg(svg: string): string {
+  if (typeof DOMParser === "undefined" || typeof XMLSerializer === "undefined") {
+    return svg;
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+    const root = doc.documentElement;
+    if (
+      !root ||
+      root.nodeName.toLowerCase() !== "svg" ||
+      doc.getElementsByTagName("parsererror").length > 0
+    ) {
+      return svg;
+    }
+
+    root.removeAttribute("width");
+    root.removeAttribute("height");
+    root.style.removeProperty("width");
+    root.style.removeProperty("height");
+    root.setAttribute("width", "100%");
+    root.setAttribute("height", "100%");
+    // Match the previous `object-fit: contain` <img> behavior regardless of
+    // whatever preserveAspectRatio the diagram renderer emitted (PlantUML
+    // sets "none", which would otherwise stretch/distort the diagram).
+    root.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+    return new XMLSerializer().serializeToString(root);
+  } catch {
+    return svg;
+  }
+}
+
+type DiagramImageProps = {
+  src: string;
+  alt?: string;
+  whiteBackground: boolean;
+};
+
+const DiagramImage: React.FC<DiagramImageProps> = ({
+  src,
+  alt,
+  whiteBackground,
+}) => {
+  const inlineSvgMarkup = React.useMemo(() => {
+    if (!isSvgImageSource(src)) {
+      return undefined;
+    }
+    const decoded = decodeSvgDataUri(src);
+    return decoded ? normalizeInlineSvg(decoded) : undefined;
+  }, [src]);
+
+  if (inlineSvgMarkup) {
+    return (
+      <InlineSvgWrapper
+        $whiteBackground={whiteBackground}
+        aria-label={alt || ""}
+        dangerouslySetInnerHTML={{ __html: inlineSvgMarkup }}
+      />
+    );
+  }
+
+  return (
+    <RasterImageElement
+      src={src}
+      alt={alt || ""}
+      draggable={false}
+      $whiteBackground={whiteBackground}
+    />
+  );
+};
 
 type Props = {
   src: string;
@@ -143,12 +225,7 @@ const FullscreenViewer: React.FC<FullscreenViewerProps> = ({
   }, [onClose]);
 
   const content = (
-    <FullscreenImageElement
-      src={src}
-      alt={alt || ""}
-      draggable={false}
-      $whiteBackground={whiteBackground || false}
-    />
+    <DiagramImage src={src} alt={alt} whiteBackground={whiteBackground || false} />
   );
 
   return ReactDOM.createPortal(
@@ -202,12 +279,7 @@ const InlinePanZoomViewer: React.FC<Props> = ({
   const targetWidth = naturalSize.width > 0 ? Math.min(naturalSize.width, maxWidth) : maxWidth;
 
   const content = (
-    <ImageElement
-      src={src}
-      alt={alt || ""}
-      draggable={false}
-      $whiteBackground={whiteBackground}
-    />
+    <DiagramImage src={src} alt={alt} whiteBackground={whiteBackground} />
   );
 
   return (
@@ -284,12 +356,25 @@ const ZoomValue = styled.span`
   text-align: center;
 `;
 
-const ImageElement = styled.img<{ $whiteBackground: boolean }>`
+const RasterImageElement = styled.img<{ $whiteBackground: boolean }>`
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
   background: ${(props) => (props.$whiteBackground ? "#ffffff" : "transparent")};
+`;
+
+const InlineSvgWrapper = styled.div<{ $whiteBackground: boolean }>`
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: ${(props) => (props.$whiteBackground ? "#ffffff" : "transparent")};
+
+  svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
 `;
 
 const FullscreenOverlay = styled.div`
@@ -332,12 +417,3 @@ const FullscreenControls = styled.div`
   padding: 3px;
 `;
 
-const FullscreenImageElement = styled.img<{
-  $whiteBackground: boolean;
-}>`
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  background: ${(props) => (props.$whiteBackground ? "#ffffff" : "transparent")};
-`;
