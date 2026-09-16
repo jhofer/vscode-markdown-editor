@@ -34,6 +34,9 @@ type Props = {
   onClickLink: (href: string, event: MouseEvent) => void;
   onCreateLink?: (title: string) => Promise<string>;
   onShowToast?: (msg: string, code: string) => void;
+  /** When the in-document search toolbar is open the formatting toolbar is
+   *  suppressed so it doesn't pop up over the highlighted match. */
+  isSearchActive?: boolean;
   view: EditorView;
 };
 
@@ -41,6 +44,7 @@ function isVisible(props) {
   const { view } = props;
   const { selection } = view.state;
 
+  if (props.isSearchActive) return false;
   if (!selection) return false;
   if (selection.empty) return false;
   if (selection.node && selection.node.type.name === "hr") {
@@ -172,12 +176,24 @@ export default class SelectionToolbar extends React.Component<Props> {
   };
 
   render() {
-    const { dictionary, onCreateLink, isTemplate, rtl, ...rest } = this.props;
+    const {
+      dictionary,
+      onCreateLink,
+      isTemplate,
+      rtl,
+      isSearchActive,
+      ...rest
+    } = this.props;
     const { view } = rest;
     const { state } = view;
     const { selection }: { selection: any } = state;
     const isCodeSelection = isNodeActive(state.schema.nodes.code_block)(state);
     const isDividerSelection = isNodeActive(state.schema.nodes.hr)(state);
+
+    // suppressed while the in-document search toolbar is open
+    if (isSearchActive) {
+      return null;
+    }
 
     // toolbar is disabled in code blocks, no bold / italic etc
     if (isCodeSelection) {

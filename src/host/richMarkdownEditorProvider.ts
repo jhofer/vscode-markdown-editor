@@ -52,6 +52,13 @@ interface EditorContext {
   // Diagrams as of the last successful sidecar write; used to skip
   // re-rendering diagrams whose source hasn't changed since that write.
   lastWritten: Diagram[];
+  // Revisions of in-flight updateMarkdown requests, oldest first, queued
+  // right before the edit that will satisfy them is applied and dequeued by
+  // onDidChangeTextDocument as each edit's change event fires (edits on one
+  // document are applied and fire change events in the order they were
+  // requested). Lets the client that sent them tell a superseded request's
+  // response apart from the one for its latest edit.
+  pendingRevisions: number[];
 }
 
 export class RichMarkdownEditorProvider
@@ -82,7 +89,7 @@ export class RichMarkdownEditorProvider
     return byteString;
   };
 
-  private updateWebview(ctx: EditorContext) {
+  private updateWebview(ctx: EditorContext, revision?: number) {
     const rawMarkdown = ctx.document.getText();
     let markdown = rawMarkdown;
 
@@ -151,6 +158,7 @@ export class RichMarkdownEditorProvider
       markdown || "",
       urlLookUp,
       rawMarkdown || "",
+      revision,
     );
     logger.logDebug("updateWebview", message);
     ctx.messageBroker.sendMessage(message);
@@ -164,7 +172,12 @@ export class RichMarkdownEditorProvider
     // Find the editor context for this document
     const ctx = this.editors.get(e.document.uri.toString());
     if (ctx) {
-      this.updateWebview(ctx);
+      // If this change is satisfying one of our own queued edits, it's the
+      // oldest one still pending (see `pendingRevisions` on EditorContext).
+      // Otherwise (queue empty) this change came from outside our own
+      // requests entirely, and the update is unconditionally authoritative.
+      const revision = ctx.pendingRevisions.shift();
+      this.updateWebview(ctx, revision);
     }
   }
 
@@ -259,6 +272,7 @@ export class RichMarkdownEditorProvider
       diagramLayout,
       diagrams: initialDiagrams,
       lastWritten: initialDiagrams,
+      pendingRevisions: [],
     };
     this.editors.set(documentUri, ctx);
 
@@ -271,14 +285,14 @@ export class RichMarkdownEditorProvider
     messageBroker.registerHandler(
       updateMarkdownMessage.requestType,
       (message: unknown) => {
-        const msg = message as IMessage<string>;
-        let markdownText = msg.payload;
+        const msg = message as IMessage<{ markdownText: string; revision: number }>;
+        let markdownText = msg.payload.markdownText;
         if (ctx.plantumlExternal && ctx.diagramLayout) {
           const extracted = extractDiagrams(markdownText, ctx.diagramLayout);
           markdownText = extracted.markdown;
           ctx.diagrams = mergeDiagrams(ctx.diagrams, extracted.diagrams, markdownText);
         }
-        this.updateTextDocument(ctx.document, markdownText);
+        this.updateTextDocument(ctx, markdownText, msg.payload.revision);
       },
     );
 
@@ -709,13 +723,32 @@ export class RichMarkdownEditorProvider
 
   /**
    * Write out the text to a given document.
+   *
+   * `revision` (when the caller is an updateMarkdown request rather than an
+   * internal write) is queued on `ctx.pendingRevisions` so the
+   * onDidChangeTextDocument handler can hand it back to the client once this
+   * edit's change event fires - or, if the text turns out to already match
+   * (no edit will actually be applied, so no change event will fire either),
+   * acknowledged immediately here instead.
    */
-  private updateTextDocument(document: vscode.TextDocument, text: string) {
+  private updateTextDocument(
+    ctx: EditorContext,
+    text: string,
+    revision?: number,
+  ) {
+    const { document } = ctx;
     const sanitized = this.matchEol(stripTrailingBlankLines(text), document);
 
     // Skip no-op edits to avoid marking the document dirty unnecessarily.
     if (sanitized === document.getText()) {
+      if (revision !== undefined) {
+        this.updateWebview(ctx, revision);
+      }
       return Promise.resolve(true);
+    }
+
+    if (revision !== undefined) {
+      ctx.pendingRevisions.push(revision);
     }
 
     const edit = new vscode.WorkspaceEdit();

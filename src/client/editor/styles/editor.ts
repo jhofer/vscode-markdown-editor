@@ -96,6 +96,19 @@ export const StyledEditor = styled("div")<{
       ${props => (props.readOnly ? "transparent" : props.theme.selected)};
   }
 
+  /* In-document search (prosemirror-search) — mirrors the raw editor's
+     .cm-searchMatch rules so highlights track the VS Code theme. */
+  .ProseMirror-search-match {
+    background: var(--vscode-editor-findMatchHighlightBackground, #ea5c0055);
+    border-radius: 2px;
+  }
+
+  .ProseMirror-active-search-match {
+    background: var(--vscode-editor-findMatchBackground, #ea5c00);
+    outline: 1px solid var(--vscode-editor-findMatchBorder, transparent);
+    border-radius: 2px;
+  }
+
   /* Make sure li selections wrap around markers */
 
   li.ProseMirror-selectednode {

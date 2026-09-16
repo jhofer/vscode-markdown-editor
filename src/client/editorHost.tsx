@@ -69,14 +69,37 @@ export function EditorHost(props: IEditorHostProps) {
   const pendingUpdateRef = useRef<boolean>(false);
   const pendingRawUpdateRef = useRef<boolean>(false);
 
+  // Monotonically increasing id stamped on every outgoing updateMarkdown
+  // request; the host hands the same number back on the response caused by
+  // that specific edit landing (see updateMarkdown.ts and
+  // RichMarkdownEditorProvider's pendingRevisions queue). Used below to tell
+  // a response for an edit we've since superseded (stale) apart from the
+  // response to our latest edit or an unrelated external change (both safe
+  // to apply).
+  const nextRevisionRef = useRef<number>(0);
+  const lastSentRevisionRef = useRef<number>(0);
+
   const messageBroker = useMessageBroker(documentUri, (broker) => {
     //add message handlers
-    broker.registerHandler(updateMarkdownMessage, ({ markdownText: incomingMarkdown, urlLookup, rawMarkdownText: incomingRawMarkdown }) => {
+    broker.registerHandler(updateMarkdownMessage, ({ markdownText: incomingMarkdown, urlLookup, rawMarkdownText: incomingRawMarkdown, revision }) => {
       console.log("Received updateMarkdown message:", {
         markdownText: incomingMarkdown?.substring(0, 100),
         urlLookup,
+        revision,
         isEcho: pendingUpdateRef.current && isBasicallySame(incomingMarkdown, lastSentMarkdownRef.current)
       });
+
+      // This response belongs to an edit we've already sent a newer one on
+      // top of (we kept typing before its round trip finished) - drop it
+      // outright. Applying it would roll the document back to that older
+      // snapshot (and, since it's a real doc replacement, reset the cursor
+      // to wherever it lands in that shorter/older text). Round trip time -
+      // and so the odds of this - grows with document size, which is why
+      // this only ever showed up typing fast in bigger documents (issue #23).
+      if (revision !== undefined && revision < lastSentRevisionRef.current) {
+        console.log("Dropping stale updateMarkdown response", { revision, lastSent: lastSentRevisionRef.current });
+        return;
+      }
 
       // Update URL lookup map - check if URLs actually changed
       if (urlLookup) {
@@ -156,9 +179,13 @@ export function EditorHost(props: IEditorHostProps) {
         // Update the ref to track current content (for comparison and so that
         // toggling to raw view shows the sanitized text).
         currentMarkdownRef.current = fullText;
+        // Stamp and remember this edit's revision so a response for an
+        // earlier, since-superseded edit can be told apart from this one.
+        const revision = ++nextRevisionRef.current;
+        lastSentRevisionRef.current = revision;
         // Send to backend but DON'T update React state
         // The editor already has this content - updating state would cause re-render and cursor loss
-        messageBroker.sendMessage(updateMarkdownMessage.request(fullText));
+        messageBroker.sendMessage(updateMarkdownMessage.request(fullText, revision));
       }, 200),
     [messageBroker]
   );
@@ -169,7 +196,9 @@ export function EditorHost(props: IEditorHostProps) {
       lastSentRawMarkdownRef.current = value;
       pendingRawUpdateRef.current = true;
       currentRawMarkdownRef.current = value;
-      messageBroker.sendMessage(updateMarkdownMessage.request(value));
+      const revision = ++nextRevisionRef.current;
+      lastSentRevisionRef.current = revision;
+      messageBroker.sendMessage(updateMarkdownMessage.request(value, revision));
       setRawMarkdownText(value);
     },
     [messageBroker]
