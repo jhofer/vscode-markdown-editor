@@ -320,6 +320,55 @@ export const StyledEditor = styled("div")<{
     opacity: 1;
   }
 
+  details.details-block {
+    margin: 8px 0;
+    padding: 8px 12px;
+    border: 1px solid ${props => props.theme.divider};
+    border-radius: 4px;
+
+    > :not(summary):first-of-type {
+      margin-top: 8px;
+    }
+
+    > :last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  summary.details-summary {
+    position: relative;
+    /* The disclosure marker is drawn into this padding with ::before; nodes/
+       Summary.ts treats a click inside it as a toggle and a click past it as
+       "place the cursor", so the label stays editable. */
+    padding-${props => (props.rtl ? "right" : "left")}: 22px;
+    list-style: none;
+    font-weight: 500;
+    cursor: ${props => (props.readOnly ? "pointer" : "text")};
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::before {
+      content: "";
+      position: absolute;
+      ${props => (props.rtl ? "right" : "left")}: 4px;
+      top: 0.35em;
+      width: 0;
+      height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-${props => (props.rtl ? "right" : "left")}: 6px solid
+        ${props => props.theme.textSecondary};
+      cursor: pointer;
+      transition: transform 100ms ease-in-out;
+    }
+  }
+
+  details.details-block[open] > summary.details-summary::before {
+    transform: rotate(90deg);
+  }
+
   .notice-block {
     display: flex;
     align-items: center;

@@ -61,6 +61,8 @@ import HorizontalRule from "./nodes/HorizontalRule";
 import Image from "./nodes/Image";
 import ListItem from "./nodes/ListItem";
 import Notice from "./nodes/Notice";
+import Details from "./nodes/Details";
+import Summary from "./nodes/Summary";
 import OrderedList from "./nodes/OrderedList";
 import Frontmatter from "./nodes/Frontmatter";
 import PlantUml from "./nodes/PlantUml";
@@ -130,6 +132,8 @@ export type Props = {
     | "image"
     | "list_item"
     | "container_notice"
+    | "details"
+    | "summary"
     | "ordered_list"
     | "paragraph"
     | "table"
@@ -591,6 +595,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
           new Notice({
             dictionary,
           }),
+          new Details(),
+          new Summary(),
           new Heading({
             dictionary,
             onShowToast: this.props.onShowToast,
