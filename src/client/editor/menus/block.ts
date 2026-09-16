@@ -15,6 +15,7 @@ import {
   WarningIcon,
   InfoIcon,
   LinkIcon,
+  CollapsedIcon,
 } from "outline-icons";
 import { MenuItem } from "../types";
 import baseDictionary from "../dictionary";
@@ -139,6 +140,12 @@ export default function blockMenuItems(
     },
     {
       name: "separator",
+    },
+    {
+      name: "details",
+      title: dictionary.details,
+      icon: CollapsedIcon,
+      keywords: "details summary collapse collapsible disclosure toggle accordion",
     },
     {
       name: "container_notice",

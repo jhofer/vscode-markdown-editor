@@ -11,9 +11,11 @@ import Emoji from "./nodes/Emoji";
 import BulletList from "./nodes/BulletList";
 import CodeBlock from "./nodes/CodeBlock";
 import CodeFence from "./nodes/CodeFence";
+import Details from "./nodes/Details";
 import CheckboxList from "./nodes/CheckboxList";
 import CheckboxItem from "./nodes/CheckboxItem";
 import Embed from "./nodes/Embed";
+import Summary from "./nodes/Summary";
 import HardBreak from "./nodes/HardBreak";
 import SoftBreak from "./nodes/SoftBreak";
 import Heading from "./nodes/Heading";
@@ -53,6 +55,8 @@ const extensions = new ExtensionManager([
   new BulletList(),
   new CodeBlock(),
   new CodeFence(),
+  new Details(),
+  new Summary(),
   new Frontmatter(),
   new PlantUml(),
   new Mermaid(),

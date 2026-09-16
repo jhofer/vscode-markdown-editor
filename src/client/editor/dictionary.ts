@@ -17,6 +17,7 @@ export const base = {
   deleteColumn: "Delete column",
   deleteRow: "Delete row",
   deleteTable: "Delete table",
+  details: "Collapsible section",
   deleteImage: "Delete image",
   downloadImage: "Download image",
   replaceImage: "Replace image",
