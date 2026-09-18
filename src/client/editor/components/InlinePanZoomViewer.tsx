@@ -101,6 +101,10 @@ type Props = {
 
 const DEFAULT_RATIO = 16 / 10;
 
+// Narrowest the viewer box may get when a tall diagram's aspect ratio is what
+// drives the width — below this the on-image toolbar no longer fits.
+const MIN_SHELL_WIDTH = 260;
+
 const buildViewerSettings = (zoomDefault = 1, fillHeight = false) => ({
   pan: { enabled: true },
   zoom: {
@@ -129,6 +133,25 @@ const buildViewerSettings = (zoomDefault = 1, fillHeight = false) => ({
   guides: { enabled: false },
   fillHeight,
 });
+
+// react-viewer-pan-zoom's own stylesheet gives its root only
+// `position: relative; overflow: hidden` and then sizes everything below it
+// with `height: 100%`. Percentage heights against an auto-height root resolve
+// to auto, so the whole chain collapses onto the diagram's natural height and
+// the root grows past the shell that clips it. The library derives its pan
+// bounds from that root's `offsetHeight`, so it believes the entire diagram is
+// already on screen and clamps panning to zero — leaving whatever the shell
+// clipped (the bottom of a tall diagram) unreachable. Taking the root out of
+// flow against the shell gives it the visible box as a definite size, which
+// both fits the diagram at 100% and makes the pan bounds match what is shown.
+const FittedViewer = styled(Viewer)`
+  && {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+`;
 
 type ToolbarProps = {
   onFullscreen: () => void;
@@ -232,7 +255,7 @@ const FullscreenViewer: React.FC<FullscreenViewerProps> = ({
     <FullscreenOverlay ref={overlayRef} onClick={onClose}>
       <FullscreenContent onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <ViewerProvider settings={buildViewerSettings(1, true)}>
-          <Viewer viewportContent={content} minimapContent={content} />
+          <FittedViewer viewportContent={content} minimapContent={content} />
           <FullscreenToolbar onClose={onClose} container={toolbarContainer} />
         </ViewerProvider>
       </FullscreenContent>
@@ -277,6 +300,10 @@ const InlinePanZoomViewer: React.FC<Props> = ({
       ? naturalSize.width / naturalSize.height
       : DEFAULT_RATIO;
   const targetWidth = naturalSize.width > 0 ? Math.min(naturalSize.width, maxWidth) : maxWidth;
+  // `maxHeight` caps the height the aspect ratio asks for without narrowing the
+  // box, which would leave a tall diagram fitted between two empty side bars.
+  // Cap the width at what the capped height can actually use instead.
+  const shellWidth = Math.max(MIN_SHELL_WIDTH, Math.min(targetWidth, maxHeight * ratio));
 
   const content = (
     <DiagramImage src={src} alt={alt} whiteBackground={whiteBackground} />
@@ -287,13 +314,13 @@ const InlinePanZoomViewer: React.FC<Props> = ({
       <ViewerShell
         className={className}
         style={{
-          width: `min(100%, ${targetWidth}px)`,
+          width: `min(100%, ${shellWidth}px)`,
           aspectRatio: `${ratio}`,
           maxHeight: `${maxHeight}px`,
         }}
       >
         <ViewerProvider settings={buildViewerSettings()}>
-          <Viewer viewportContent={content} minimapContent={content} />
+          <FittedViewer viewportContent={content} minimapContent={content} />
           <Toolbar onFullscreen={() => setIsFullscreen(true)} onEdit={onEdit} />
         </ViewerProvider>
       </ViewerShell>
