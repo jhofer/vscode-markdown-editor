@@ -1,10 +1,11 @@
-import { parser, serializer } from "./server";
+import { parser, schema, serializer } from "./server";
 import {
   decodeSvgDataUri,
   isSvgImageSource,
 } from "./components/ViewerImage";
 import { createDeferredClickHandlers } from "./components/DoubleClickableDiv";
 import { renderPlantUmlMessage } from "../../common/messages/renderPlantUml";
+import { stripTrailingBlankLines } from "../../common/stripTrailingBlankLines";
 
 test("renders an empty doc", () => {
   const ast = parser.parse("");
@@ -376,4 +377,40 @@ test("single click is canceled when double click fires", () => {
   expect(onDoubleClick).toHaveBeenCalledTimes(1);
 
   jest.useRealTimers();
+});
+
+// Nodes built in the editor (an uploaded image, a notice from the `:::` input
+// rule) carry none of the attrs the parser captures from a file, so the
+// serializer has to fall back to its own spelling rather than reuse them.
+describe("nodes created in the editor", () => {
+  const write = (doc: ReturnType<typeof schema.node>) =>
+    stripTrailingBlankLines(serializer.serialize(doc, undefined));
+
+  test("an uploaded image serializes without captured source markup", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [
+        schema.node("image", { src: "images/new.png", alt: "a caption" }),
+      ]),
+    ]);
+
+    expect(write(doc)).toBe("![a caption](images/new.png)\n");
+  });
+
+  test("an image with no alt text serializes", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.node("image", { src: "a.png" })]),
+    ]);
+
+    expect(write(doc)).toBe("![](a.png)\n");
+  });
+
+  test("a notice serializes with the default fences", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("container_notice", { style: "warning" }, [
+        schema.node("paragraph", null, [schema.text("careful")]),
+      ]),
+    ]);
+
+    expect(write(doc)).toBe(":::warning\ncareful\n:::\n");
+  });
 });
