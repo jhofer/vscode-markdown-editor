@@ -2,14 +2,55 @@ import MarkdownIt from "markdown-it";
 
 const BREAK_REGEX = /(?:^|[^\\])\\n/;
 
+// Which of the two outer pipes a raw row was written with. Tables may be
+// written without them (`a | b` instead of `| a | b |`), and the serializer
+// reproduces whichever form the source used.
+export type OuterPipes = "both" | "none" | "leading" | "trailing";
+
+// A table nested in a blockquote keeps the quote markers in its source lines
+// (token maps point at the original line numbers), so drop that prefix before
+// reading the row's shape.
+function stripBlockPrefix(line: string): string {
+  return line.replace(/^[\s>]*/, "");
+}
+
+function outerPipes(line: string): OuterPipes {
+  const s = stripBlockPrefix(line).trim();
+  const leading = s.startsWith("|");
+  const trailing = s.length > 1 && s.endsWith("|") && !s.endsWith("\\|");
+  if (leading && trailing) return "both";
+  if (leading) return "leading";
+  if (trailing) return "trailing";
+  return "none";
+}
+
 // Split a raw markdown table row into its cell segments, dropping exactly one
-// leading and one trailing pipe. Whitespace inside each segment is preserved so
-// the serializer can reproduce the source delimiter row verbatim.
+// leading and one trailing pipe. Escaped pipes (`\|`) belong to the cell text
+// and never split it, matching how markdown-it reads the row. Whitespace inside
+// each segment is preserved so the serializer can reproduce the source
+// delimiter row verbatim.
 function splitPipeCells(line: string): string[] {
-  let s = line.trim();
+  let s = stripBlockPrefix(line).trim();
   if (s.startsWith("|")) s = s.slice(1);
-  if (s.endsWith("|")) s = s.slice(0, -1);
-  return s.split("|");
+  if (s.length > 0 && s.endsWith("|") && !s.endsWith("\\|")) {
+    s = s.slice(0, -1);
+  }
+
+  const cells: string[] = [];
+  let cell = "";
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "\\" && s[i + 1] === "|") {
+      cell += "\\|";
+      i++;
+    } else if (s[i] === "|") {
+      cells.push(cell);
+      cell = "";
+    } else {
+      cell += s[i];
+    }
+  }
+  cells.push(cell);
+  return cells;
 }
 
 // Whether a table's cells are written padded (`| a | b |`) or tight (`|a|b|`) in
@@ -68,13 +109,58 @@ export default function markdownTables(md: MarkdownIt): void {
 
       const padded = looksPadded(headerLine, headCells.length);
 
-      tokens[i].meta = { ...tokens[i].meta, padded };
+      tokens[i].meta = {
+        ...tokens[i].meta,
+        padded,
+        pipes: outerPipes(headerLine),
+        delimiterPipes: delimiterOk ? outerPipes(delimLine) : undefined,
+      };
       headCells.forEach((cell, k) => {
         cell.meta = {
           ...cell.meta,
           ...(delimiterOk ? { delimiter: segments[k] } : {}),
         };
       });
+
+      // Walk the table's rows to record two more things straight from the
+      // source: how many cells each row was actually written with (markdown-it
+      // pads a short row out to the column count), and the whitespace each cell
+      // was written with, so a column-aligned table keeps its alignment instead
+      // of being squeezed back to `| a | b |` on open.
+      let rowSegments: string[] | null = null;
+      let cellIndex = 0;
+      for (let j = i + 1; j < tokens.length; j++) {
+        const token = tokens[j];
+        if (token.type === "table_close") break;
+
+        if (token.type === "tr_open") {
+          const rowMap = token.map;
+          const rowLine = rowMap ? srcLines[rowMap[0]] : undefined;
+          rowSegments =
+            typeof rowLine === "string" ? splitPipeCells(rowLine) : null;
+          cellIndex = 0;
+
+          if (rowSegments) {
+            token.meta = { ...token.meta, cells: rowSegments.length };
+          }
+          continue;
+        }
+
+        if (token.type !== "th_open" && token.type !== "td_open") continue;
+
+        const segment = rowSegments ? rowSegments[cellIndex] : undefined;
+        cellIndex++;
+        if (segment === undefined) continue;
+
+        const match = /^(\s*)(.*?)(\s*)$/.exec(segment);
+        if (!match) continue;
+
+        token.meta = {
+          ...token.meta,
+          padLeft: match[1].length,
+          padRight: match[3].length,
+        };
+      }
     }
 
     for (let i = tokens.length - 1; i > 0; i--) {
