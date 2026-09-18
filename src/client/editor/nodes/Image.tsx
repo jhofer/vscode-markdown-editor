@@ -130,6 +130,16 @@ export default class Image extends Node {
         alt: {
           default: null,
         },
+        // The alt text exactly as the source wrote it, together with the plain
+        // text it parsed to. The markup is reused while the caption still reads
+        // the same, so `![a \[b\]](x.png)` keeps its escapes instead of being
+        // rewritten; an edited caption falls back to escaping `alt`.
+        rawAlt: {
+          default: null,
+        },
+        rawAltText: {
+          default: null,
+        },
         layoutClass: {
           default: null,
         },
@@ -305,10 +315,23 @@ export default class Image extends Node {
   };
 
   toMarkdown(state, node) {
-    console.log("toMarkdown", node, state);
+    // An image is an inline node: whatever separates it from the text around it
+    // belongs to that text, so the markup starts at the `![` itself.
+    const alt = (node.attrs.alt || "").replace("\n", "");
+    const keepsRawAlt =
+      node.attrs.rawAlt != null && (node.attrs.rawAltText || "") === alt;
+
+    // Reused source markup is written verbatim, so it still has to take the one
+    // escape its surroundings force: an unescaped pipe would end a table cell.
+    const altMarkup = !keepsRawAlt
+      ? state.esc(alt)
+      : state.inTable
+      ? node.attrs.rawAlt.replace(/\|/g, "\\|")
+      : node.attrs.rawAlt;
+
     let markdown =
-      " ![" +
-      state.esc((node.attrs.alt || "").replace("\n", "") || "") +
+      "![" +
+      altMarkup +
       "](" +
       state.esc(node.attrs.src);
     if (node.attrs.layoutClass) {
@@ -324,10 +347,18 @@ export default class Image extends Node {
     return {
       node: "image",
       getAttrs: (token) => {
-        console.log("parseMarkdown", token);
+        // The alt text is parsed as inline content, so it can be several
+        // children (`a \[b\]` is text + two escapes); joining them keeps the
+        // whole caption instead of just its first run.
+        const alt = (token.children || [])
+          .map((child) => child.content)
+          .join("");
+
         return {
           src: token.attrGet("src"),
-          alt: (token.children[0] && token.children[0].content) || null,
+          alt: alt || null,
+          rawAlt: token.content ?? null,
+          rawAltText: alt,
           ...getLayoutAndTitle(token.attrGet("title")),
         };
       },

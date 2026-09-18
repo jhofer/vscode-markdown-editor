@@ -29,6 +29,14 @@ export default class Notice extends Node {
         style: {
           default: "info",
         },
+        // How the source spelled the fences (`::: info`, `::::warning`, …) and
+        // where it put the blank lines just inside them, so opening a file
+        // doesn't rewrite every notice to the editor's own spelling. Null for
+        // notices with no known source (pasted / editor-created).
+        markup: { default: null },
+        closeMarkup: { default: null },
+        blankAfterOpen: { default: false },
+        blankBeforeClose: { default: false },
       },
       content: "block+",
       group: "block",
@@ -109,17 +117,39 @@ export default class Notice extends Node {
   }
 
   toMarkdown(state, node) {
-    state.write("\n:::" + (node.attrs.style || "info") + "\n");
-    state.renderContent(node);
+    const { markup, closeMarkup } = node.attrs;
+
+    state.write(markup || ":::" + (node.attrs.style || "info"));
     state.ensureNewLine();
-    state.write(":::");
+
+    // `closeBlock` only marks the block as closed; the pending newlines are
+    // written by the next `write`, which is how the blank line after the
+    // opening fence is opted into.
+    if (node.attrs.blankAfterOpen) state.closeBlock(node);
+
+    state.renderContent(node);
+
+    // An unterminated notice (the source ran to the end of the file) keeps no
+    // closing fence, so writing one would add markup the file never had.
+    if (closeMarkup !== "") {
+      state.flushClose(node.attrs.blankBeforeClose ? 2 : 1);
+      state.ensureNewLine();
+      state.write(closeMarkup || ":::");
+    }
+
     state.closeBlock(node);
   }
 
   parseMarkdown() {
     return {
       block: "container_notice",
-      getAttrs: tok => ({ style: tok.info }),
+      getAttrs: tok => ({
+        style: (tok.info || "").trim() || "info",
+        markup: tok.meta?.markup ?? null,
+        closeMarkup: tok.meta?.closeMarkup ?? null,
+        blankAfterOpen: tok.meta?.blankAfterOpen ?? false,
+        blankBeforeClose: tok.meta?.blankBeforeClose ?? false,
+      }),
     };
   }
 }

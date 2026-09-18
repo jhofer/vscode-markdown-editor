@@ -33,6 +33,11 @@ export default class Table extends Node {
         // (`|a|b|`). Captured by rules/tables.ts; defaults to padded, which is
         // also what editor-created tables use.
         padded: { default: true },
+        // Which outer pipes the source rows were written with ("both",
+        // "leading", "trailing" or "none"), and the same for the delimiter row,
+        // which may be written differently from the rows around it.
+        pipes: { default: "both" },
+        delimiterPipes: { default: null },
       },
       content: "tr+",
       tableRole: "table",
@@ -140,7 +145,11 @@ export default class Table extends Node {
   parseMarkdown() {
     return {
       block: "table",
-      getAttrs: tok => ({ padded: tok.meta?.padded ?? true }),
+      getAttrs: tok => ({
+        padded: tok.meta?.padded ?? true,
+        pipes: tok.meta?.pipes ?? "both",
+        delimiterPipes: tok.meta?.delimiterPipes ?? null,
+      }),
     };
   }
 
