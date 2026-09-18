@@ -141,11 +141,18 @@ export class RichMarkdownEditorProvider
             }
             const src = ctx.webviewPanel.webview.asWebviewUri(onDiskPath);
 
+            const exists = fs.existsSync(onDiskPath.fsPath);
             logger.logDebug("Image URL mapping:", {
               original: url,
               onDisk: onDiskPath.toString(),
               webview: src?.toString(),
+              exists,
             });
+            if (!exists) {
+              logger.logDebug(
+                `Image not found on disk (the webview will render nothing): ${onDiskPath.fsPath}`,
+              );
+            }
             acc[url] = src.toString();
             return acc;
           }
@@ -236,6 +243,16 @@ export class RichMarkdownEditorProvider
     // Setup initial content for the webview
     webviewPanel.webview.options = {
       enableScripts: true,
+      // `localResourceRoots` defaults to the open workspace folders plus the
+      // extension directory, but `/`-rooted image and link paths resolve
+      // against the *git repository root* (getPathRootFolder) and relative
+      // ones against the document's own folder — neither is guaranteed to sit
+      // inside a workspace folder (a wiki opened below its repo root, a repo
+      // opened as a subfolder, a multi-repo workspace). Any image outside the
+      // default roots still gets a perfectly well-formed `vscode-resource`
+      // URL, which the webview then silently refuses to load: the picture just
+      // never appears. Declare the roots we actually resolve against.
+      localResourceRoots: this.getLocalResourceRoots(document),
     };
 
     const messageBroker = new HostMessageBroker(webviewPanel, documentUri);
@@ -485,6 +502,30 @@ export class RichMarkdownEditorProvider
       // Remove the editor context from the map
       this.editors.delete(documentUri);
     });
+  }
+
+  /**
+   * Roots the webview is allowed to load local files from. Must cover every
+   * root `updateWebview` resolves image paths against, or the resulting
+   * `vscode-resource` URL is well-formed but unloadable and the image renders
+   * as an empty box.
+   */
+  private getLocalResourceRoots(document: vscode.TextDocument): vscode.Uri[] {
+    const roots = [
+      this.context.extensionUri,
+      vscode.Uri.file(path.dirname(document.uri.fsPath)),
+      ...(vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri),
+    ];
+
+    try {
+      // Throws for a document that is neither in a git repository nor in an
+      // open workspace folder; the roots above still cover that case.
+      roots.push(vscode.Uri.file(this.getPathRootFolder(document)));
+    } catch (error) {
+      logger.logDebug("No path root folder for localResourceRoots", error);
+    }
+
+    return roots;
   }
 
   private getWorkspaceFolder(document: vscode.TextDocument) {

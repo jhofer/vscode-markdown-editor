@@ -536,7 +536,11 @@ const Caption = styled.p`
 
 const ImageWrapper = styled.span`
   line-height: 0;
-  display: inline-block;
+  /* Block, not inline-block: the viewer inside sizes itself with a percentage
+     width, and a shrink-to-fit box gives that percentage nothing to resolve
+     against — the image would collapse to zero width in a wide column and
+     overflow a narrow one. The viewer centers itself with margin-inline. */
+  display: block;
   position: relative;
 
   &:hover {

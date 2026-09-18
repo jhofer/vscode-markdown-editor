@@ -314,6 +314,9 @@ const InlinePanZoomViewer: React.FC<Props> = ({
       <ViewerShell
         className={className}
         style={{
+          // `100%` here needs a block-level parent to resolve against: inside a
+          // shrink-to-fit box it collapses the viewer to nothing, which is why
+          // Image.tsx's ImageWrapper is a block (see the note there).
           width: `min(100%, ${shellWidth}px)`,
           aspectRatio: `${ratio}`,
           maxHeight: `${maxHeight}px`,
@@ -341,6 +344,7 @@ export default InlinePanZoomViewer;
 const ViewerShell = styled.div`
   position: relative;
   overflow: hidden;
+  margin-inline: auto;
   border: 1px solid ${(props) => props.theme.divider};
   border-radius: 6px;
   background: ${(props) => props.theme.codeBackground || props.theme.background};
