@@ -31,6 +31,12 @@ export default class TableCell extends Node {
         colspan: { default: 1 },
         rowspan: { default: 1 },
         alignment: { default: null },
+        // The whitespace this cell was written with in the source, so a
+        // column-aligned table keeps its alignment on a round trip. Null for
+        // cells with no known source (pasted / editor-created), which fall back
+        // to the table's `padded` style.
+        padLeft: { default: null },
+        padRight: { default: null },
       },
     };
   }
@@ -42,7 +48,11 @@ export default class TableCell extends Node {
   parseMarkdown() {
     return {
       block: "td",
-      getAttrs: tok => ({ alignment: tok.info }),
+      getAttrs: tok => ({
+        alignment: tok.info,
+        padLeft: tok.meta?.padLeft ?? null,
+        padRight: tok.meta?.padRight ?? null,
+      }),
     };
   }
 

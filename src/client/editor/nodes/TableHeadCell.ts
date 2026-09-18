@@ -32,6 +32,12 @@ export default class TableHeadCell extends Node {
         // serializer can reproduce it instead of rebuilding it from alignment.
         // Null for cells with no known source (pasted / editor-created).
         delimiter: { default: null },
+        // The whitespace this cell was written with in the source, so a
+        // column-aligned table keeps its alignment on a round trip. Null for
+        // cells with no known source (pasted / editor-created), which fall back
+        // to the table's `padded` style.
+        padLeft: { default: null },
+        padRight: { default: null },
       },
     };
   }
@@ -46,6 +52,8 @@ export default class TableHeadCell extends Node {
       getAttrs: tok => ({
         alignment: tok.info,
         delimiter: tok.meta?.delimiter ?? null,
+        padLeft: tok.meta?.padLeft ?? null,
+        padRight: tok.meta?.padRight ?? null,
       }),
     };
   }

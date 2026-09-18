@@ -86,6 +86,38 @@ function delimiterSegment(attrs) {
   return seg;
 }
 
+// The whitespace to write on one side of a cell: what the source wrote there,
+// or a single space for a padded table (`| a | b |`) and none for a tight one
+// (`|a|b|`) when the cell has no source of its own.
+function cellPad(stored, fallbackPadded) {
+  if (typeof stored === "number") return Math.max(0, stored);
+  return fallbackPadded ? 1 : 0;
+}
+
+function hasLeadingPipe(pipes) {
+  return pipes === "both" || pipes === "leading";
+}
+
+function hasTrailingPipe(pipes) {
+  return pipes === "both" || pipes === "trailing";
+}
+
+// How many cells of a body row to write. markdown-it pads a row that was
+// written short out to the table's column count; trailing cells that are empty
+// and beyond what the source wrote are dropped again, which reads back
+// identically (GFM fills a short row with empty cells).
+function writtenCellCount(row, cells) {
+  const source = row.attrs.cells;
+  if (typeof source !== "number") return cells.length;
+
+  const limit = Math.max(1, Math.min(source, cells.length));
+  let count = cells.length;
+  while (count > limit && cells[count - 1].textContent === "") {
+    count--;
+  }
+  return count;
+}
+
 // ::- This is an object used to track state and expose
 // methods related to markdown serialization. Instances are passed to
 // node and mark serialization methods (see `toMarkdown`).
@@ -290,9 +322,13 @@ export class MarkdownSerializerState {
         // Render the node. Special case code marks, since their content
         // may not be escaped.
         if (noEsc && node.isText)
+          // A pipe splits a table row wherever it appears, inline code
+          // included, so it still has to be escaped in content that is
+          // otherwise written verbatim (GFM reads `\|` back as a literal
+          // pipe inside the span).
           this.text(
             this.markString(inner, true, parent, index) +
-              node.text +
+              (this.inTable ? node.text.replace(/\|/g, "\\|") : node.text) +
               this.markString(inner, false, parent, index + 1),
             false
           );
@@ -331,52 +367,73 @@ export class MarkdownSerializerState {
   }
 
   renderTable(node) {
-    this.flushClose(1);
+    // Separate the table from whatever came before with a blank line, written
+    // inside the current block's delimiter so a table in a blockquote or list
+    // item stays there. A table that opens the document or its parent block has
+    // nothing to close, and this then writes nothing.
+    this.flushClose(2);
 
-    let headerBuffer = "";
     const prevTable = this.inTable;
     this.inTable = true;
 
-    // Cells are written padded (`| a | b |`) or tight (`|a|b|`) depending on how
-    // the source table was written; captured at parse time (rules/tables.ts).
+    // Cells are written padded (`| a | b |`) or tight (`|a|b|`), with or
+    // without the outer pipes, and possibly padded further to line the columns
+    // up; all of it is captured at parse time (rules/tables.ts) so the file
+    // keeps the shape it was written in.
     const padded = node.attrs.padded !== false;
-    const cellStart = padded ? "| " : "|";
-    const cellSep = padded ? " | " : "|";
-    const rowEnd = padded ? " |\n" : "|\n";
+    const pipes = node.attrs.pipes || "both";
+    const leadingPipe = hasLeadingPipe(pipes);
+    const trailingPipe = hasTrailingPipe(pipes);
 
-    // Ensure a blank line above the table, but not a spurious leading newline
-    // when the table is the very first block in the document.
-    if (this.out) this.out += "\n";
-
-    // rows
     node.forEach((row, _, i) => {
-      // cols
-      row.forEach((cell, _, j) => {
-        this.out += j === 0 ? cellStart : cellSep;
+      const cells = [];
+      row.forEach(cell => cells.push(cell));
+
+      // Every row is flushed as a whole line below, so there is never an open
+      // block between them that `write` would have to close.
+      this.closed = false;
+      this.write(leadingPipe ? "|" : "");
+
+      const count = i === 0 ? cells.length : writtenCellCount(row, cells);
+      for (let j = 0; j < count; j++) {
+        if (j > 0) this.out += "|";
+
+        const cell = cells[j];
+        const openEdge = j === 0 && !leadingPipe;
+        const closeEdge = j === count - 1 && !trailingPipe;
+
+        this.out += this.repeat(
+          " ",
+          cellPad(cell.attrs.padLeft, padded && !openEdge)
+        );
 
         cell.forEach(para => {
-          // just padding the output so that empty cells take up the same space
-          // as headings.
-          // TODO: Ideally we'd calc the longest cell length and use that
-          // to pad all the others.
-          if (para.textContent === "" && para.content.size === 0) {
-            if (padded) this.out += "  ";
-          } else {
-            this.closed = false;
-            this.render(para, row, j);
-          }
+          // An empty cell contributes nothing of its own: the separators and
+          // padding around it already spell it out.
+          if (para.textContent === "" && para.content.size === 0) return;
+          this.closed = false;
+          this.render(para, row, j);
         });
 
-        if (i === 0) {
-          headerBuffer += "|" + delimiterSegment(cell.attrs);
-        }
-      });
+        this.out += this.repeat(
+          " ",
+          cellPad(cell.attrs.padRight, padded && !closeEdge)
+        );
+      }
 
-      this.out += rowEnd;
+      this.out += (trailingPipe ? "|" : "") + "\n";
 
-      if (headerBuffer) {
-        this.out += `${headerBuffer}|\n`;
-        headerBuffer = undefined;
+      // The delimiter row follows the header, spelled the way the source
+      // spelled it (its outer pipes may differ from the rows around it).
+      if (i === 0) {
+        const delimiterPipes = node.attrs.delimiterPipes || pipes;
+        this.closed = false;
+        this.write(
+          (hasLeadingPipe(delimiterPipes) ? "|" : "") +
+            cells.map(cell => delimiterSegment(cell.attrs)).join("|") +
+            (hasTrailingPipe(delimiterPipes) ? "|" : "")
+        );
+        this.out += "\n";
       }
     });
 
