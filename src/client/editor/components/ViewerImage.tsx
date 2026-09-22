@@ -34,8 +34,19 @@ function decodeBase64Utf8(value: string): string {
   return Buffer.from(value, "base64").toString("utf8");
 }
 
+/**
+ * Drop everything before the root `<svg>`: a file written by an external tool
+ * (draw.io, Inkscape) starts with an XML declaration, a DOCTYPE and often a
+ * comment, none of which mean anything once the markup is injected into an
+ * HTML document.
+ */
+export function stripSvgPrologue(svg: string): string {
+  const root = /<svg[\s>]/i.exec(svg);
+  return root ? svg.slice(root.index) : svg;
+}
+
 function sanitizeSvgMarkup(svg: string): string {
-  return svg
+  return stripSvgPrologue(svg)
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
     .replace(/\son[a-z]+=("[^"]*"|'[^']*')/gi, "");
 }

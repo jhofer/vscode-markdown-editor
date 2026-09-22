@@ -20,6 +20,20 @@ import { readyMessage } from "../common/messages/ready";
 import { initMessage } from "../common/messages/init";
 import { requestCompletionMessage } from "../common/messages/requestCompletion";
 import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
+import { dropResourcesMessage } from "../common/messages/dropResources";
+import {
+  DroppedResource,
+  isImagePath,
+} from "../common/droppedResources";
+import {
+  decodeMarkdownPath,
+  toRelativeMarkdownPath,
+} from "./droppedResources";
+import {
+  MAX_INLINE_SVG_TOTAL_BYTES,
+  isSvgPath,
+  svgFileToDataUri,
+} from "./inlineSvg";
 import { CopilotProvider } from "./copilotProvider";
 import { PlantUmlRenderer } from "./plantUmlRenderer";
 import { stripTrailingBlankLines } from "../common/stripTrailingBlankLines";
@@ -103,6 +117,57 @@ export class RichMarkdownEditorProvider
     return byteString;
   };
 
+  /**
+   * Turn one dropped URI into what the webview needs to write it into the
+   * markdown. VS Code hands over a reference to a file that already exists on
+   * disk, so nothing is copied: the markdown just points at it, relative to
+   * the document being edited (see toRelativeMarkdownPath). Anything that
+   * isn't a local file (an http URL, an unsaved editor) is dropped.
+   */
+  private resolveDroppedResource(
+    ctx: EditorContext,
+    dropped: string,
+  ): DroppedResource | undefined {
+    let uri: vscode.Uri;
+    try {
+      // `codefiles` payloads carry bare filesystem paths; a Windows drive
+      // letter must not be mistaken for a URI scheme, hence the two-character
+      // minimum before the colon.
+      uri = /^[a-zA-Z][a-zA-Z0-9+.-]+:/.test(dropped)
+        ? vscode.Uri.parse(dropped, true)
+        : vscode.Uri.file(dropped);
+    } catch (error) {
+      logger.logDebug("Ignoring unparseable dropped uri", { dropped, error });
+      return undefined;
+    }
+
+    if (uri.scheme !== "file") {
+      logger.logDebug("Ignoring dropped uri with unsupported scheme", {
+        dropped,
+      });
+      return undefined;
+    }
+
+    // Dropping a file onto its own document would insert a link to itself.
+    if (uri.fsPath === ctx.document.uri.fsPath) {
+      return undefined;
+    }
+
+    const rawsrc = toRelativeMarkdownPath(ctx.document.uri.fsPath, uri.fsPath);
+    const isImage = isImagePath(uri.fsPath);
+    const inlined =
+      isImage && isSvgPath(uri.fsPath) ? svgFileToDataUri(uri.fsPath) : undefined;
+
+    return {
+      rawsrc,
+      src: inlined ?? ctx.webviewPanel.webview.asWebviewUri(uri).toString(),
+      isImage,
+      // An image's label becomes its caption, where the extension is just
+      // noise; a link's text is the file name as it is on disk.
+      label: isImage ? path.parse(uri.fsPath).name : path.basename(uri.fsPath),
+    };
+  }
+
   private updateWebview(ctx: EditorContext, revision?: number) {
     const rawMarkdown = ctx.document.getText();
     let markdown = rawMarkdown;
@@ -137,21 +202,26 @@ export class RichMarkdownEditorProvider
         path.dirname(ctx.document.uri.fsPath),
       );
 
+      let inlinedBytes = 0;
       urlLookUp = imageRawUrls.reduce(
         (acc: Record<string, string>, url: string) => {
           if (url.startsWith("http")) {
             acc[url] = url;
             return acc;
           } else {
+            // A link destination is percent-encoded markdown ("my%20pic.png"),
+            // a filesystem path is not.
+            const decodedUrl = decodeMarkdownPath(url);
+
             let onDiskPath: vscode.Uri;
-            if (url.startsWith("/")) {
+            if (decodedUrl.startsWith("/")) {
               // Workspace-relative path (leading '/' means relative to the git repository
               // root, or the workspace root if the document isn't part of a git repository)
-              const cleanUrl = url.substring(1);
+              const cleanUrl = decodedUrl.substring(1);
               onDiskPath = vscode.Uri.joinPath(rootFolderPath, cleanUrl);
             } else {
               // Document-relative path (resolve against the containing file's directory)
-              onDiskPath = vscode.Uri.joinPath(documentDir, url);
+              onDiskPath = vscode.Uri.joinPath(documentDir, decodedUrl);
             }
             const src = ctx.webviewPanel.webview.asWebviewUri(onDiskPath);
 
@@ -167,7 +237,22 @@ export class RichMarkdownEditorProvider
                 `Image not found on disk (the webview will render nothing): ${onDiskPath.fsPath}`,
               );
             }
-            acc[url] = src.toString();
+
+            // An SVG travels as its own markup so the webview can render it
+            // inline; see svgFileToDataUri for why an <img> is not enough. The
+            // budget keeps a document full of large diagrams from copying
+            // megabytes into every update message.
+            const inlined =
+              exists &&
+              isSvgPath(onDiskPath.fsPath) &&
+              inlinedBytes < MAX_INLINE_SVG_TOTAL_BYTES
+                ? svgFileToDataUri(onDiskPath.fsPath)
+                : undefined;
+            if (inlined) {
+              inlinedBytes += inlined.length;
+            }
+
+            acc[url] = inlined ?? src.toString();
             return acc;
           }
         },
@@ -383,6 +468,35 @@ export class RichMarkdownEditorProvider
           const errorMsg = uploadImageMessage.error(error?.message);
           logger.logError(e);
           ctx.messageBroker.sendMessage(errorMsg);
+        }
+      },
+    );
+
+    // Register handler for files dropped onto the editor
+    messageBroker.registerHandler(
+      dropResourcesMessage.requestType,
+      (message: unknown) => {
+        const msg = message as IMessage<{ uris: string[] }>;
+        try {
+          const resources = (msg.payload.uris || [])
+            .map((uri) => this.resolveDroppedResource(ctx, uri))
+            .filter((resource): resource is DroppedResource => !!resource);
+
+          logger.logDebug(
+            "dropResources",
+            // Not the resources themselves: an inlined SVG's `src` is its
+            // whole markup.
+            resources.map(({ rawsrc, isImage }) => ({ rawsrc, isImage })),
+          );
+          ctx.messageBroker.sendMessage(
+            dropResourcesMessage.response(resources),
+          );
+        } catch (e) {
+          const error = e as Error;
+          logger.logError(e);
+          ctx.messageBroker.sendMessage(
+            dropResourcesMessage.error(error?.message ?? String(e)),
+          );
         }
       },
     );

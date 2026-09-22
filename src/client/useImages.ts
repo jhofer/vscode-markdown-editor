@@ -6,10 +6,11 @@ import { fileToDataUrl } from "../common/fileToDataUrl";
 
 type lookupRefType = (rawsrc: string) => string;
 type uploadImageType = (file: File) => Promise<{ rawsrc: string; src: string }>;
+type registerImageType = (rawsrc: string, src: string) => void;
 export const useImages = (
   messageBroker: ClientMessageBroker,
   externalUrlLookupRef?: MutableRefObject<Record<string, string>>
-): [uploadImageType, lookupRefType] => {
+): [uploadImageType, lookupRefType, registerImageType] => {
   const internalUrlLookUpRef = useRef<Record<string, string | undefined>>({});
   
   // Use external ref if provided, otherwise use internal ref
@@ -17,14 +18,20 @@ export const useImages = (
 
   const uploadImage = useBidirectionalEvent(messageBroker, uploadImageMessage);
 
-  const uploadImageHandler: uploadImageType = async (file: File) => {
-    const uploadResult = await uploadImage(file);
-    const { rawsrc, src } = uploadResult;
-
+  // Teach the editor how to render an image the host just told us about,
+  // before the document round trip that would otherwise supply the mapping.
+  const registerImage: registerImageType = (rawsrc: string, src: string) => {
     urlLookUpRef.current = {
       ...urlLookUpRef.current,
       [rawsrc]: src,
     };
+  };
+
+  const uploadImageHandler: uploadImageType = async (file: File) => {
+    const uploadResult = await uploadImage(file);
+    const { rawsrc, src } = uploadResult;
+
+    registerImage(rawsrc, src);
     return uploadResult;
   };
 
@@ -34,5 +41,5 @@ export const useImages = (
     return result;
   };
 
-  return [uploadImageHandler, lookupRef];
+  return [uploadImageHandler, lookupRef, registerImage];
 };
