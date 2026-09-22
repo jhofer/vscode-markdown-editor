@@ -11,6 +11,7 @@ import {
   mergeDiagrams,
   nameFences,
   parseSidecar,
+  reconcileSidecar,
   serializeSidecar,
 } from "../common/plantumlSidecar";
 
@@ -359,5 +360,82 @@ describe("nameFences", () => {
   it("is a no-op for markdown with no plantuml blocks", () => {
     const md = "just text";
     expect(nameFences(md, "architecture")).toBe(md);
+  });
+});
+
+describe("reconcileSidecar", () => {
+  const markdown =
+    "# Doc\n\n![architecture-1](/.attachments/docs/architecture/architecture-1.svg)\n";
+
+  it("takes over a source edited outside the editor", () => {
+    const current: Diagram[] = [
+      { name: "architecture-1", source: "Bob -> Karl: Authentication Request" },
+    ];
+    const fromDisk: Diagram[] = [
+      { name: "architecture-1", source: "Bob -> Karl: ping" },
+    ];
+
+    expect(reconcileSidecar(current, fromDisk, markdown)).toEqual({
+      diagrams: [{ name: "architecture-1", source: "Bob -> Karl: ping" }],
+      changed: true,
+    });
+  });
+
+  it("reports no change when the sidecar matches what the editor holds", () => {
+    const current: Diagram[] = [
+      { name: "architecture-1", source: "Alice -> Bob: Hi" },
+    ];
+
+    const result = reconcileSidecar(current, [...current], markdown);
+    expect(result.changed).toBe(false);
+    expect(result.diagrams).toEqual(current);
+  });
+
+  it("round-trips the editor's own write without reporting a change", () => {
+    const current: Diagram[] = [
+      { name: "architecture-1", source: "Alice -> Bob: Hi" },
+      { name: "architecture-2", source: "Bob -> Alice: Yo" },
+    ];
+    const fromDisk = parseSidecar(serializeSidecar(current), "architecture");
+
+    expect(reconcileSidecar(current, fromDisk, markdown).changed).toBe(false);
+  });
+
+  it("picks up a diagram added to the sidecar", () => {
+    const current: Diagram[] = [
+      { name: "architecture-1", source: "Alice -> Bob: Hi" },
+    ];
+    const fromDisk: Diagram[] = [
+      ...current,
+      { name: "architecture-2", source: "Bob -> Karl: ping" },
+    ];
+
+    expect(reconcileSidecar(current, fromDisk, markdown)).toEqual({
+      diagrams: fromDisk,
+      changed: true,
+    });
+  });
+
+  it("keeps a diagram the markdown still links to but the sidecar dropped", () => {
+    const current: Diagram[] = [
+      { name: "architecture-1", source: "Alice -> Bob: Hi" },
+    ];
+
+    const result = reconcileSidecar(current, [], markdown);
+    expect(result.diagrams).toEqual(current);
+    expect(result.changed).toBe(false);
+  });
+
+  it("drops a diagram removed from both the sidecar and the markdown", () => {
+    const current: Diagram[] = [
+      { name: "architecture-1", source: "Alice -> Bob: Hi" },
+      { name: "architecture-2", source: "Bob -> Alice: Yo" },
+    ];
+    const onlyFirst =
+      "# Doc\n\n![architecture-1](/.attachments/docs/architecture/architecture-1.svg)\n";
+
+    const result = reconcileSidecar(current, [current[0]], onlyFirst);
+    expect(result.diagrams).toEqual([current[0]]);
+    expect(result.changed).toBe(true);
   });
 });
