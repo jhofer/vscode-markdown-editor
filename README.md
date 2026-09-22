@@ -104,6 +104,13 @@ docs/architecture.plantuml     @startuml architecture-1 … @enduml
 .attachments/docs/architecture/architecture-2.svg
 ```
 
+The sidecar is watched while the document is open, so editing
+`docs/architecture.plantuml` outside the editor — in another tab, from a
+script, or by handing the file to an AI agent — updates the inline source and
+the rendered diagram immediately, and regenerates the affected `.svg` files.
+(Without that, the open editor would keep the sources it read when it was
+opened and write them back over the external edit on the next save.)
+
 Diagrams keep a stable name for life (`architecture-1`, `architecture-2`, …,
 gaps allowed), so reordering or deleting a diagram doesn't rewrite unrelated
 links or files. Only the SVGs generated from *this* document's sidecar are
@@ -122,6 +129,11 @@ Known limitations:
   externalized shows its diagrams as plain (non-editable) images — turning
   the setting back on restores inline editing. There's no automatic
   re-inlining while it's off.
+* A diagram *added* to the sidecar externally is picked up, but nothing
+  links to it until you add an image link for it to the markdown yourself.
+  A diagram *removed* externally is kept as long as the markdown still links
+  to its `.svg`, so the document never ends up pointing at an image nothing
+  regenerates.
 * If Java is unavailable, the sidecar file and image links are still written,
   but the SVGs are not generated.
 * Sidecar files using `@startuml(name)` (parentheses, no space — a

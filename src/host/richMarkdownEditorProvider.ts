@@ -29,14 +29,24 @@ import {
   inlineDiagrams,
   mergeDiagrams,
   nameFences,
+  reconcileSidecar,
 } from "../common/plantumlSidecar";
 import {
   DiagramDocumentLayout,
   layoutFor,
   normalizeAttachmentsFolder,
   readSidecar,
+  renderDiagrams,
   writeDiagrams,
 } from "./plantUmlExternalFiles";
+
+/**
+ * How long to wait after a change to the `.plantuml` sidecar before reloading
+ * it. A single external edit often lands as several filesystem events (write,
+ * truncate, rename-into-place); coalescing them keeps us from re-rendering the
+ * diagrams once per event, and gives a half-written file a moment to settle.
+ */
+const SIDECAR_RELOAD_DEBOUNCE_MS = 150;
 
 // Per-document editor context
 interface EditorContext {
@@ -59,6 +69,10 @@ interface EditorContext {
   // requested). Lets the client that sent them tell a superseded request's
   // response apart from the one for its latest edit.
   pendingRevisions: number[];
+  // Serializes everything that touches the sidecar/SVGs on disk (saving,
+  // reloading after an external edit) so two of them can never render the
+  // same SVG file concurrently or interleave their writes.
+  diagramWork: Promise<void>;
 }
 
 export class RichMarkdownEditorProvider
@@ -290,6 +304,7 @@ export class RichMarkdownEditorProvider
       diagrams: initialDiagrams,
       lastWritten: initialDiagrams,
       pendingRevisions: [],
+      diagramWork: Promise.resolve(),
     };
     this.editors.set(documentUri, ctx);
 
@@ -473,15 +488,20 @@ export class RichMarkdownEditorProvider
         }
         const layout = ctx.diagramLayout;
         const diagrams = ctx.diagrams;
-        writeDiagrams(layout, diagrams, ctx.lastWritten, this.plantUmlRenderer)
-          .then(() => {
-            ctx.lastWritten = diagrams;
-          })
-          .catch((error) => {
-            logger.logError(error);
-          });
+        this.queueDiagramWork(ctx, async () => {
+          await writeDiagrams(
+            layout,
+            diagrams,
+            ctx.lastWritten,
+            this.plantUmlRenderer,
+          );
+          ctx.lastWritten = diagrams;
+        });
       },
     );
+
+    // Pick up edits made to the `.plantuml` sidecar outside this editor.
+    const sidecarSubscription = this.watchSidecar(ctx);
 
     // Handle webview state changes (e.g., when switching tabs)
     const viewStateSubscription = webviewPanel.onDidChangeViewState(() => {
@@ -498,9 +518,160 @@ export class RichMarkdownEditorProvider
     webviewPanel.onDidDispose(() => {
       changeDocumentSubscription.dispose();
       saveDocumentSubscription.dispose();
+      sidecarSubscription?.dispose();
       viewStateSubscription.dispose();
       // Remove the editor context from the map
       this.editors.delete(documentUri);
+    });
+  }
+
+  /**
+   * Compares two filesystem paths, ignoring case on the platforms whose file
+   * systems do (a watcher event can report a different casing than the path we
+   * derived the sidecar's name from).
+   */
+  private isSamePath(a: string, b: string): boolean {
+    const normalized = [a, b].map((value) => path.normalize(value));
+    return process.platform === "linux"
+      ? normalized[0] === normalized[1]
+      : normalized[0].toLowerCase() === normalized[1].toLowerCase();
+  }
+
+  /**
+   * Runs disk work for one document's diagrams, one job at a time.
+   *
+   * Saving and reloading both write into the same SVG folder, and a render
+   * shells out to Java, so two overlapping jobs would race each other's files
+   * and could leave the last-written SVG belonging to the older source.
+   */
+  private queueDiagramWork(
+    ctx: EditorContext,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    ctx.diagramWork = ctx.diagramWork
+      .catch(() => undefined)
+      .then(work)
+      .catch((error) => {
+        logger.logError(error);
+      });
+    return ctx.diagramWork;
+  }
+
+  /**
+   * Watches this document's `.plantuml` sidecar so edits made outside the
+   * editor - another tab, a script, an AI agent rewriting the file from a
+   * terminal - show up in the open editor right away.
+   *
+   * Without this the editor keeps showing the sources it read when it was
+   * opened, and the next save writes those stale sources straight back over
+   * the external edit.
+   *
+   * The sidecar sits next to the markdown file, which is not guaranteed to be
+   * inside an open workspace folder (a wiki opened below its repo root, a repo
+   * opened as a subfolder), so the watcher is anchored on the file's own
+   * directory rather than on a workspace-relative glob.
+   */
+  private watchSidecar(ctx: EditorContext): vscode.Disposable | undefined {
+    const layout = ctx.diagramLayout;
+    if (!ctx.plantumlExternal || !layout) {
+      return undefined;
+    }
+
+    let watcher: vscode.FileSystemWatcher;
+    try {
+      // Matched on "*.plantuml" rather than on the sidecar's own file name:
+      // a document called e.g. "notes[1].md" would turn into a glob pattern
+      // that matches the wrong files (or nothing). The events are filtered by
+      // path below instead.
+      watcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(
+          vscode.Uri.file(path.dirname(layout.sidecarPath)),
+          "*.plantuml",
+        ),
+      );
+    } catch (error) {
+      // Not being able to watch the sidecar only costs live refresh; the
+      // editor itself keeps working, so log and carry on.
+      logger.logError(error);
+      return undefined;
+    }
+
+    let timer: NodeJS.Timeout | undefined;
+    const schedule = (uri: vscode.Uri) => {
+      if (!this.isSamePath(uri.fsPath, layout.sidecarPath)) {
+        return;
+      }
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        timer = undefined;
+        this.reloadSidecar(ctx);
+      }, SIDECAR_RELOAD_DEBOUNCE_MS);
+    };
+
+    const subscriptions = [
+      watcher.onDidChange(schedule),
+      watcher.onDidCreate(schedule),
+      watcher.onDidDelete(schedule),
+    ];
+
+    return new vscode.Disposable(() => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      subscriptions.forEach((subscription) => subscription.dispose());
+      watcher.dispose();
+    });
+  }
+
+  /**
+   * Re-reads the sidecar after it changed on disk: refreshes the diagrams the
+   * editor holds, pushes the new sources to the webview, and regenerates the
+   * SVGs so the images on disk match too.
+   *
+   * The watcher also fires on the editor's own save; `reconcileSidecar`
+   * reports no change in that case and we stop before re-rendering anything.
+   */
+  private reloadSidecar(ctx: EditorContext): void {
+    const layout = ctx.diagramLayout;
+    if (!ctx.plantumlExternal || !layout) {
+      return;
+    }
+
+    this.queueDiagramWork(ctx, async () => {
+      // The editor may have been closed while this job sat in the queue.
+      if (!this.editors.has(ctx.document.uri.toString())) {
+        return;
+      }
+
+      const fromDisk = readSidecar(layout);
+      const { diagrams, changed } = reconcileSidecar(
+        ctx.diagrams,
+        fromDisk,
+        ctx.document.getText(),
+      );
+      if (!changed) {
+        return;
+      }
+
+      logger.logDebug("Reloading externally changed PlantUML sidecar", {
+        sidecar: layout.sidecarPath,
+        diagrams: diagrams.map((d) => d.name),
+      });
+
+      const previous = ctx.lastWritten;
+      ctx.diagrams = diagrams;
+      // The sidecar on disk is now the authoritative copy of these sources, so
+      // treat it as written: a later save only needs to re-render what changes
+      // after this point.
+      ctx.lastWritten = diagrams;
+
+      // Show the new source immediately - rendering the SVGs shells out to
+      // Java and takes noticeably longer.
+      this.updateWebview(ctx);
+
+      await renderDiagrams(layout, diagrams, previous, this.plantUmlRenderer);
     });
   }
 

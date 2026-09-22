@@ -91,10 +91,8 @@ export function readSidecar(layout: DiagramDocumentLayout): Diagram[] {
 }
 
 /**
- * Writes the sidecar file, (re-)renders any diagram whose source changed (or
- * whose SVG is missing), and prunes SVGs that belong to this document's
- * naming scheme but are no longer current — never touching anything else in
- * the diagram folder or outside it.
+ * Writes the sidecar file and brings the generated SVGs in line with it (see
+ * `renderDiagrams`).
  */
 export async function writeDiagrams(
   layout: DiagramDocumentLayout,
@@ -110,6 +108,25 @@ export async function writeDiagrams(
     fs.writeFileSync(layout.sidecarPath, serializeSidecar(diagrams), "utf8");
   }
 
+  await renderDiagrams(layout, diagrams, previous, renderer);
+}
+
+/**
+ * (Re-)renders any diagram whose source changed since `previous` (or whose SVG
+ * is missing), and prunes SVGs that belong to this document's naming scheme
+ * but are no longer current — never touching anything else in the diagram
+ * folder or outside it.
+ *
+ * Kept separate from `writeDiagrams` so a sidecar edited outside the editor
+ * can be picked up (diagrams re-rendered from what is now on disk) without
+ * immediately writing the file back out underneath whoever edited it.
+ */
+export async function renderDiagrams(
+  layout: DiagramDocumentLayout,
+  diagrams: Diagram[],
+  previous: Diagram[],
+  renderer: PlantUmlRenderer,
+): Promise<void> {
   const previousByName = new Map(previous.map((d) => [d.name, d.source]));
   const currentNames = new Set(diagrams.map((d) => d.name));
 

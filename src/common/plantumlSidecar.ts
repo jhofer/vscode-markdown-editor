@@ -385,3 +385,28 @@ export function nameFences(markdown: string, baseName: string): string {
 
   return result;
 }
+
+/**
+ * Decides what a document's diagram list should be after its `.plantuml`
+ * sidecar changed on disk behind the editor's back (another tab, a script, an
+ * AI agent editing the file directly).
+ *
+ * `fromDisk` wins for everything it contains, and `mergeDiagrams` keeps any
+ * diagram the markdown still links to but the sidecar no longer defines —
+ * dropping those would leave the document pointing at an SVG nothing
+ * regenerates. `changed` is false when the result is identical to what the
+ * editor already holds, which is the common case right after the editor wrote
+ * the sidecar itself: the watcher fires on our own write, and reloading then
+ * would needlessly re-render every diagram.
+ */
+export function reconcileSidecar(
+  current: Diagram[],
+  fromDisk: Diagram[],
+  markdown: string,
+): { diagrams: Diagram[]; changed: boolean } {
+  const diagrams = mergeDiagrams(current, fromDisk, markdown);
+  return {
+    diagrams,
+    changed: serializeSidecar(diagrams) !== serializeSidecar(current),
+  };
+}
