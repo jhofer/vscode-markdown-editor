@@ -22,6 +22,8 @@ import { updateMarkdownMessage } from "../common/messages/updateMarkdown";
 import { openLinkMessage } from "../common/messages/openLink";
 import { readyMessage } from "../common/messages/ready";
 import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
+import { dropResourcesMessage } from "../common/messages/dropResources";
+import { DroppedResource } from "../common/droppedResources";
 import { CodeMirrorEditor } from "./rawEditor";
 
 type searchResultCallback = (results: SearchResult[]) => void;
@@ -158,7 +160,14 @@ export function EditorHost(props: IEditorHostProps) {
     messageBroker,
     requestCompletionMessage
   );
-  const [uploadImage, urlLookUp] = useImages(messageBroker, urlLookupRef);
+  const [uploadImage, urlLookUp, registerImage] = useImages(
+    messageBroker,
+    urlLookupRef
+  );
+  const resolveDroppedResources = useBidirectionalEvent(
+    messageBroker,
+    dropResourcesMessage
+  );
   const renderPlantUml = useBidirectionalEvent(
     messageBroker,
     renderPlantUmlMessage
@@ -241,6 +250,28 @@ export function EditorHost(props: IEditorHostProps) {
     [requestCompletion]
   );
 
+  // Files dropped onto either editor: the host resolves each one to a path
+  // relative to this document, and images get their webview URL registered up
+  // front so they render without waiting for the document round trip.
+  const handleDropResources = useCallback(
+    async (uris: string[]): Promise<DroppedResource[]> => {
+      try {
+        const result = await resolveDroppedResources(uris);
+        const resources = result?.resources ?? [];
+        resources.forEach((resource) => {
+          if (resource.isImage && resource.src) {
+            registerImage(resource.rawsrc, resource.src);
+          }
+        });
+        return resources;
+      } catch (error) {
+        console.error("Failed to resolve dropped files", error);
+        return [];
+      }
+    },
+    [resolveDroppedResources, registerImage]
+  );
+
   const rerenderEditor = useCallback((markdown: string | undefined) => {
     // Force re-render by updating the markdown text
     setMarkdownText(markdown);
@@ -269,6 +300,7 @@ export function EditorHost(props: IEditorHostProps) {
       onCreateLink={handleCreateLink}
       onRequestCompletion={handleRequestCompletion}
       uploadImage={uploadImage}
+      onDropResources={handleDropResources}
       onClickLink={handleClickLink}
       onGetImageData={urlLookUp}
       onRenderPlantUml={renderPlantUml}
@@ -281,6 +313,7 @@ export function EditorHost(props: IEditorHostProps) {
     <CodeMirrorEditor
       value={rawMarkdownText || ""}
       onChange={handleMarkdownChange}
+      onDropResources={handleDropResources}
     />
   );
 

@@ -96,6 +96,8 @@ import Search from "./plugins/Search";
 import SmartText from "./plugins/SmartText";
 import TrailingNode from "./plugins/TrailingNode";
 import PasteHandler from "./plugins/PasteHandler";
+import FileDrop from "./plugins/FileDrop";
+import { DroppedResource } from "../../common/droppedResources";
 import { PluginSimple } from "markdown-it";
 
 export { schema, parser, serializer, renderToHtml } from "./server";
@@ -157,6 +159,7 @@ export type Props = {
     [name: string]: (view: EditorView, event: Event) => boolean;
   };
   uploadImage?: (file: File) => Promise<{ src: string; rawsrc: string }>;
+  onDropResources?: (uris: string[]) => Promise<DroppedResource[]>;
   onBlur?: () => void;
   onFocus?: () => void;
   onSave?: ({ done: boolean }) => void;
@@ -603,6 +606,9 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             offset: this.props.headingsOffset,
           }),
           new HorizontalRule(),
+          new FileDrop({
+            onDropResources: this.props.onDropResources,
+          }),
           new Image({
             dictionary,
             uploadImage: this.props.uploadImage,

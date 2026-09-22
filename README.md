@@ -17,6 +17,8 @@ Perfect for writing docs, authoring blog posts, and editing markdown website con
 * PlantUML blocks with side-by-side source editing and live diagram preview
 * Theme-aware PlantUML rendering with optional styled skinparams (`' vscode-style`)
 * ` ```mermaid ` blocks with the same side-by-side source editing and live preview — rendered in the webview, so no Java (or any other prerequisite) is required, and the diagram picks up the editor's theme colors automatically
+* **Drag and drop files from VS Code** — drop a file from the explorer into either editor mode and it is linked, not copied: images become `![name](./relative/path.png)`, anything else a plain link. The path is always relative to the markdown file being edited. (Dragging an image in from outside VS Code still copies it into the `images` folder as before.)
+* **SVG files render inline**, so diagrams exported by tools like [Draw.io Integration](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) keep their shape labels — an `<img>` drops the `<foreignObject>` content those labels live in — and stay sharp at any zoom level
 * **AI-powered completion suggestions** using GitHub Copilot (when available)
 * Smart completion that respects line endings and markdown context
 * Tab to accept, Escape to dismiss AI suggestions

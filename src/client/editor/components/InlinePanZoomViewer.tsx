@@ -17,7 +17,7 @@ import { isSvgImageSource, decodeSvgDataUri } from "./ViewerImage";
 // with an intrinsic pixel width/height (attribute and/or inline `style`)
 // which would otherwise fight the container's CSS sizing, so that is
 // stripped in favor of width/height: 100%.
-function normalizeInlineSvg(svg: string): string {
+export function normalizeInlineSvg(svg: string): string {
   if (typeof DOMParser === "undefined" || typeof XMLSerializer === "undefined") {
     return svg;
   }
@@ -31,6 +31,17 @@ function normalizeInlineSvg(svg: string): string {
       doc.getElementsByTagName("parsererror").length > 0
     ) {
       return svg;
+    }
+
+    // Stripping the intrinsic size throws away the aspect ratio unless a
+    // viewBox already carries it. Files exported by other tools (draw.io) do
+    // not always have one, so derive it from the size about to be dropped.
+    if (!root.getAttribute("viewBox")) {
+      const width = parseFloat(root.getAttribute("width") || "");
+      const height = parseFloat(root.getAttribute("height") || "");
+      if (width > 0 && height > 0) {
+        root.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      }
     }
 
     root.removeAttribute("width");

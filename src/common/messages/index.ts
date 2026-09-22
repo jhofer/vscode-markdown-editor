@@ -7,3 +7,4 @@ export * from "./ready";
 export * from "./init";
 export * from "./requestCompletion";
 export * from "./renderPlantUml";
+export * from "./dropResources";
