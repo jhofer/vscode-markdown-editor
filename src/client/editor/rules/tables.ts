@@ -1,6 +1,12 @@
 import MarkdownIt from "markdown-it";
 
-const BREAK_REGEX = /(?:^|[^\\])\\n/;
+// An HTML line break inside a table cell (`a<br>b`). A markdown table row must
+// stay on one source line, so a hard break in a cell can't be written as the
+// usual trailing-spaces newline; `<br>` is the GFM convention for it. The
+// parser runs with `html: false`, so markdown-it leaves the tag as plain text
+// and it is turned into a real hard break here.
+const BREAK_REGEX = /<br\s*\/?>/i;
+const BREAK_SPLIT_REGEX = /(<br\s*\/?>)/i;
 
 // Which of the two outer pipes a raw row was written with. Tables may be
 // written without them (`a | b` instead of `| a | b |`), and the serializer
@@ -168,31 +174,37 @@ export default function markdownTables(md: MarkdownIt): void {
         tokens[i].level--;
       }
 
-      // convert unescaped \n in the text into real br tag
-      if (tokens[i].type === "inline" && tokens[i].content.match(BREAK_REGEX)) {
+      // convert `<br>` in a cell's text into a real hard break
+      if (
+        inside &&
+        tokens[i].type === "inline" &&
+        BREAK_REGEX.test(tokens[i].content)
+      ) {
         const existing = tokens[i].children || [];
-        tokens[i].children = [];
+        const children: InstanceType<typeof Token>[] = [];
 
         existing.forEach(child => {
-          const breakParts = child.content.split(BREAK_REGEX);
-
-          // a schema agnostic way to know if a node is inline code would be
-          // great, for now we are stuck checking the node type.
-          if (breakParts.length > 1 && child.type !== "code_inline") {
-            breakParts.forEach((part, index) => {
-              const token = new Token("text", "", 1);
-              token.content = part.trim();
-              tokens[i].children?.push(token);
-
-              if (index < breakParts.length - 1) {
-                const brToken = new Token("br", "br", 1);
-                tokens[i].children?.push(brToken);
-              }
-            });
-          } else {
-            tokens[i].children?.push(child);
+          // only plain text: `<br>` inside inline code stays literal
+          if (child.type !== "text" || !BREAK_REGEX.test(child.content)) {
+            children.push(child);
+            return;
           }
+
+          child.content.split(BREAK_SPLIT_REGEX).forEach((part, index) => {
+            // odd indexes are the captured `<br>` tags themselves
+            if (index % 2 === 1) {
+              const brToken = new Token("hardbreak", "br", 0);
+              brToken.markup = part;
+              children.push(brToken);
+            } else if (part) {
+              const token = new Token("text", "", 0);
+              token.content = part;
+              children.push(token);
+            }
+          });
         });
+
+        tokens[i].children = children;
       }
 
       // filter out incompatible tokens from markdown-it that we don't need
