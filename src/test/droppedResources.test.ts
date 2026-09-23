@@ -174,6 +174,29 @@ describe("getDataTransferUris", () => {
     ).toEqual(["file:///repo/a.png"]);
   });
 
+  it("reads a VS Code explorer drag once, not once per format", () => {
+    expect(
+      getDataTransferUris(
+        dataTransfer({
+          "text/uri-list": "file:///repo/a.png",
+          codefiles: JSON.stringify(["/repo/a.png"]),
+          resourceurls: JSON.stringify(["file:///repo/a.png"]),
+        }),
+      ),
+    ).toEqual(["file:///repo/a.png"]);
+  });
+
+  it("falls back to codefiles when the uri list is empty", () => {
+    expect(
+      getDataTransferUris(
+        dataTransfer({
+          "text/uri-list": "",
+          codefiles: JSON.stringify(["/repo/a.png", "/repo/b.png"]),
+        }),
+      ),
+    ).toEqual(["/repo/a.png", "/repo/b.png"]);
+  });
+
   it("falls back to a file: uri in plain text", () => {
     expect(
       getDataTransferUris(dataTransfer({ "text/plain": "file:///repo/a.png" })),

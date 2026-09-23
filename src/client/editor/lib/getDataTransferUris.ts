@@ -93,12 +93,19 @@ export default function getDataTransferUris(
     return [];
   }
 
-  const found: string[] = [];
-  for (const format of URI_LIST_FORMATS) {
-    found.push(...parseUriList(readData(dataTransfer, format)));
-  }
-  for (const format of JSON_LIST_FORMATS) {
-    found.push(...parseJsonList(readData(dataTransfer, format)));
+  // VS Code announces the same files in every format at once, each spelled
+  // its own way (`file:///repo/a.png` in the uri list, `/repo/a.png` in
+  // codefiles), so merging them inserts every dropped file more than once.
+  // They are alternatives: take the first one that has anything.
+  let found: string[] = [];
+  for (const format of DROP_FORMATS) {
+    const value = readData(dataTransfer, format);
+    found = URI_LIST_FORMATS.includes(format)
+      ? parseUriList(value)
+      : parseJsonList(value);
+    if (found.length > 0) {
+      break;
+    }
   }
 
   if (found.length === 0) {
