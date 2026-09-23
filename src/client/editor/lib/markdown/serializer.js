@@ -407,10 +407,14 @@ export class MarkdownSerializerState {
           cellPad(cell.attrs.padLeft, padded && !openEdge)
         );
 
+        let rendered = 0;
         cell.forEach(para => {
           // An empty cell contributes nothing of its own: the separators and
           // padding around it already spell it out.
           if (para.textContent === "" && para.content.size === 0) return;
+          // Markdown cells hold a single line, so a cell split into several
+          // paragraphs (Enter in a cell, pasted HTML) is joined with `<br>`.
+          if (rendered++ > 0) this.out += "<br>";
           this.closed = false;
           this.render(para, row, j);
         });
