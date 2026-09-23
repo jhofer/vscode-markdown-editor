@@ -480,7 +480,14 @@ export class RichMarkdownEditorProvider
         try {
           const resources = (msg.payload.uris || [])
             .map((uri) => this.resolveDroppedResource(ctx, uri))
-            .filter((resource): resource is DroppedResource => !!resource);
+            .filter((resource): resource is DroppedResource => !!resource)
+            // Two spellings of the same file (a URI and a plain path) resolve
+            // to the same link; insert it once.
+            .filter(
+              (resource, index, all) =>
+                all.findIndex((other) => other.rawsrc === resource.rawsrc) ===
+                index,
+            );
 
           logger.logDebug(
             "dropResources",
