@@ -296,6 +296,7 @@ export default class Image extends Node {
             alt={alt || ""}
             maxWidth={760}
             maxHeight={460}
+            svgFallbackBackground
           />
         </ImageWrapper>
         <Caption

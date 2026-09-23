@@ -6,7 +6,15 @@ import {
   ViewerContext,
   ViewerProvider,
 } from "react-viewer-pan-zoom";
-import { isSvgImageSource, decodeSvgDataUri } from "./ViewerImage";
+import {
+  isSvgImageSource,
+  decodeSvgDataUri,
+  svgHasOwnBackground,
+} from "./ViewerImage";
+
+// Backdrop for an SVG that does not paint one itself, so its (usually dark)
+// strokes and text stay readable on a dark theme and on the fullscreen overlay.
+export const SVG_FALLBACK_BACKGROUND = "#f5f5f5";
 
 // Zooming is implemented as a CSS `transform: scale()` on the rendered image
 // (see buildViewerSettings below / react-viewer-pan-zoom). A plain <img> of an
@@ -65,25 +73,38 @@ type DiagramImageProps = {
   src: string;
   alt?: string;
   whiteBackground: boolean;
+  svgFallbackBackground: boolean;
 };
 
 const DiagramImage: React.FC<DiagramImageProps> = ({
   src,
   alt,
   whiteBackground,
+  svgFallbackBackground,
 }) => {
-  const inlineSvgMarkup = React.useMemo(() => {
+  const { inlineSvgMarkup, needsBackdrop } = React.useMemo(() => {
     if (!isSvgImageSource(src)) {
-      return undefined;
+      return { inlineSvgMarkup: undefined, needsBackdrop: false };
     }
     const decoded = decodeSvgDataUri(src);
-    return decoded ? normalizeInlineSvg(decoded) : undefined;
+    return {
+      inlineSvgMarkup: decoded ? normalizeInlineSvg(decoded) : undefined,
+      // An SVG only reachable by URL cannot be inspected; assume it is
+      // transparent like most exported diagrams.
+      needsBackdrop: !decoded || !svgHasOwnBackground(decoded),
+    };
   }, [src]);
+
+  const background = whiteBackground
+    ? "#ffffff"
+    : svgFallbackBackground && needsBackdrop
+    ? SVG_FALLBACK_BACKGROUND
+    : "transparent";
 
   if (inlineSvgMarkup) {
     return (
       <InlineSvgWrapper
-        $whiteBackground={whiteBackground}
+        $background={background}
         aria-label={alt || ""}
         dangerouslySetInnerHTML={{ __html: inlineSvgMarkup }}
       />
@@ -95,7 +116,7 @@ const DiagramImage: React.FC<DiagramImageProps> = ({
       src={src}
       alt={alt || ""}
       draggable={false}
-      $whiteBackground={whiteBackground}
+      $background={background}
     />
   );
 };
@@ -106,6 +127,11 @@ type Props = {
   maxWidth?: number;
   maxHeight?: number;
   whiteBackground?: boolean;
+  /**
+   * Put a light backdrop behind an SVG that has no background of its own.
+   * Off for PlantUML/Mermaid, which are themed to sit on the editor background.
+   */
+  svgFallbackBackground?: boolean;
   className?: string;
   onEdit?: () => void;
 };
@@ -229,6 +255,7 @@ type FullscreenViewerProps = {
   src: string;
   alt?: string;
   whiteBackground?: boolean;
+  svgFallbackBackground?: boolean;
   onClose: () => void;
 };
 
@@ -236,6 +263,7 @@ const FullscreenViewer: React.FC<FullscreenViewerProps> = ({
   src,
   alt,
   whiteBackground,
+  svgFallbackBackground,
   onClose,
 }) => {
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
@@ -259,7 +287,12 @@ const FullscreenViewer: React.FC<FullscreenViewerProps> = ({
   }, [onClose]);
 
   const content = (
-    <DiagramImage src={src} alt={alt} whiteBackground={whiteBackground || false} />
+    <DiagramImage
+      src={src}
+      alt={alt}
+      whiteBackground={whiteBackground || false}
+      svgFallbackBackground={svgFallbackBackground || false}
+    />
   );
 
   return ReactDOM.createPortal(
@@ -281,6 +314,7 @@ const InlinePanZoomViewer: React.FC<Props> = ({
   maxWidth = 840,
   maxHeight = 520,
   whiteBackground = false,
+  svgFallbackBackground = false,
   className,
   onEdit,
 }) => {
@@ -317,7 +351,12 @@ const InlinePanZoomViewer: React.FC<Props> = ({
   const shellWidth = Math.max(MIN_SHELL_WIDTH, Math.min(targetWidth, maxHeight * ratio));
 
   const content = (
-    <DiagramImage src={src} alt={alt} whiteBackground={whiteBackground} />
+    <DiagramImage
+      src={src}
+      alt={alt}
+      whiteBackground={whiteBackground}
+      svgFallbackBackground={svgFallbackBackground}
+    />
   );
 
   return (
@@ -343,6 +382,7 @@ const InlinePanZoomViewer: React.FC<Props> = ({
           src={src}
           alt={alt}
           whiteBackground={whiteBackground}
+          svgFallbackBackground={svgFallbackBackground}
           onClose={() => setIsFullscreen(false)}
         />
       )}
@@ -398,19 +438,19 @@ const ZoomValue = styled.span`
   text-align: center;
 `;
 
-const RasterImageElement = styled.img<{ $whiteBackground: boolean }>`
+const RasterImageElement = styled.img<{ $background: string }>`
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
-  background: ${(props) => (props.$whiteBackground ? "#ffffff" : "transparent")};
+  background: ${(props) => props.$background};
 `;
 
-const InlineSvgWrapper = styled.div<{ $whiteBackground: boolean }>`
+const InlineSvgWrapper = styled.div<{ $background: string }>`
   width: 100%;
   height: 100%;
   display: block;
-  background: ${(props) => (props.$whiteBackground ? "#ffffff" : "transparent")};
+  background: ${(props) => props.$background};
 
   svg {
     width: 100%;
