@@ -83,12 +83,16 @@ function usePosition({ menuRef, isSelectingText, props }) {
   const isImageSelection =
     selection.node && selection.node.type.name === "image";
   // Images need their own positioning to get the toolbar in the center
-  if (isImageSelection) {
-    const element = view.nodeDOM(selection.from);
-
+  const imageNodeElement = isImageSelection
+    ? (view.nodeDOM(selection.from) as HTMLElement | null)
+    : null;
+  if (imageNodeElement) {
     // Images are wrapped which impacts positioning - need to traverse through
-    // p > span > div.image
-    const imageElement = element.getElementsByTagName("img")[0];
+    // p > span > div.image. SVGs are rendered inline rather than as an <img>,
+    // so there may be no <img> at all: throwing here would unmount the whole
+    // editor, so fall back to the root <svg> or the node's own element.
+    const imageElement =
+      imageNodeElement.querySelector("img, svg") || imageNodeElement;
     const { left, top, width } = imageElement.getBoundingClientRect();
 
     return {
