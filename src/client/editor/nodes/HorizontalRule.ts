@@ -45,6 +45,18 @@ export default class HorizontalRule extends Node {
   inputRules({ type }) {
     return [
       new InputRule(/^(?:---|___\s|\*\*\*\s)$/, (state, match, start, end) => {
+        // Only fire where a rule can actually replace the paragraph. In a table
+        // cell (content "paragraph+") it can't, and the replace would instead
+        // split the table, dropping the cursor into a new row below - so typing
+        // `---` in a cell would appear to jump to the next cell.
+        const $start = state.doc.resolve(start);
+        const parent = $start.node(-1);
+        if (
+          !parent.canReplaceWith($start.index(-1), $start.indexAfter(-1), type)
+        ) {
+          return null;
+        }
+
         const { tr } = state;
 
         if (match[0]) {
