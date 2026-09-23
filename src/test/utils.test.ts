@@ -4,6 +4,7 @@ import {
   outlineToMarkdown,
   extractFrontmatter,
   restoreFrontmatter,
+  debounce,
 } from "../client/utils/utils"
 
 import { FIXTURES } from "./fixtures"
@@ -66,5 +67,32 @@ describe("restoreFrontmatter", () => {
 
   it("returns body unchanged when frontmatter is empty", () => {
     expect(restoreFrontmatter("", "# Title\n")).toBe("# Title\n")
+  })
+})
+
+describe("debounce", () => {
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  test("pending() reports a call still waiting on the timeout", () => {
+    const fn = jest.fn()
+    const debounced = debounce(fn, 200)
+    expect(debounced.pending()).toBe(false)
+
+    debounced()
+    expect(debounced.pending()).toBe(true)
+
+    jest.advanceTimersByTime(200)
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(debounced.pending()).toBe(false)
+  })
+
+  test("flush() runs the waiting call and clears pending()", () => {
+    const fn = jest.fn()
+    const debounced = debounce(fn, 200)
+    debounced.call({}, "x")
+    debounced.flush()
+    expect(fn).toHaveBeenCalledWith("x")
+    expect(debounced.pending()).toBe(false)
   })
 })

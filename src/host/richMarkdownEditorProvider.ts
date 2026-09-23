@@ -83,6 +83,9 @@ interface EditorContext {
   // requested). Lets the client that sent them tell a superseded request's
   // response apart from the one for its latest edit.
   pendingRevisions: number[];
+  // Chains document edits so each one is applied only after the previous one
+  // has landed (see updateTextDocument).
+  documentEdits: Promise<unknown>;
   // Serializes everything that touches the sidecar/SVGs on disk (saving,
   // reloading after an external edit) so two of them can never render the
   // same SVG file concurrently or interleave their writes.
@@ -389,6 +392,7 @@ export class RichMarkdownEditorProvider
       diagrams: initialDiagrams,
       lastWritten: initialDiagrams,
       pendingRevisions: [],
+      documentEdits: Promise.resolve(),
       diagramWork: Promise.resolve(),
     };
     this.editors.set(documentUri, ctx);
@@ -1069,6 +1073,24 @@ export class RichMarkdownEditorProvider
     text: string,
     revision?: number,
   ) {
+    // Edits are applied one after another, each against the document as the
+    // previous one left it. Computed up front instead, the no-op check and the
+    // whole-document range below would be based on a document an earlier,
+    // still-in-flight edit is about to change: when that edit adds lines (an
+    // Enter), the stale range stops short of the new end and leaves the old
+    // tail behind, duplicated after the new text. The client then receives
+    // content it never sent and loads it over what the user is typing.
+    ctx.documentEdits = ctx.documentEdits
+      .catch(() => undefined)
+      .then(() => this.applyTextDocument(ctx, text, revision));
+    return ctx.documentEdits;
+  }
+
+  private async applyTextDocument(
+    ctx: EditorContext,
+    text: string,
+    revision?: number,
+  ) {
     const { document } = ctx;
     const sanitized = this.matchEol(stripTrailingBlankLines(text), document);
 
@@ -1077,7 +1099,7 @@ export class RichMarkdownEditorProvider
       if (revision !== undefined) {
         this.updateWebview(ctx, revision);
       }
-      return Promise.resolve(true);
+      return true;
     }
 
     if (revision !== undefined) {
@@ -1093,6 +1115,14 @@ export class RichMarkdownEditorProvider
       sanitized,
     );
 
-    return vscode.workspace.applyEdit(edit);
+    const applied = await vscode.workspace.applyEdit(edit);
+    if (!applied && revision !== undefined) {
+      // No change event will fire to dequeue it; drop it so later edits'
+      // change events are still matched with their own revisions.
+      const index = ctx.pendingRevisions.indexOf(revision);
+      if (index !== -1) ctx.pendingRevisions.splice(index, 1);
+    }
+    return applied;
   }
+
 }

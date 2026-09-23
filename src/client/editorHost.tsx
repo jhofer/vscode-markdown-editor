@@ -81,6 +81,10 @@ export function EditorHost(props: IEditorHostProps) {
   const nextRevisionRef = useRef<number>(0);
   const lastSentRevisionRef = useRef<number>(0);
 
+  // Whether the rich-text editor holds edits that haven't been sent yet (still
+  // waiting out the debounce). Assigned once handleOutlineChange exists below.
+  const hasUnsentEditsRef = useRef<() => boolean>(() => false);
+
   const messageBroker = useMessageBroker(documentUri, (broker) => {
     //add message handlers
     broker.registerHandler(updateMarkdownMessage, ({ markdownText: incomingMarkdown, urlLookup, rawMarkdownText: incomingRawMarkdown, revision }) => {
@@ -122,6 +126,14 @@ export function EditorHost(props: IEditorHostProps) {
       if (pendingUpdateRef.current && isBasicallySame(incomingMarkdown, lastSentMarkdownRef.current)) {
         console.log("Skipping echo update - content is the same");
         pendingUpdateRef.current = false;
+      } else if (revision !== undefined && hasUnsentEditsRef.current()) {
+        // The response to one of our own edits, but the user has typed on
+        // since and that isn't sent yet, so the editor is ahead of this
+        // snapshot. Loading it would roll those keystrokes back, and the
+        // caret, restored by offset into the now shorter text, would land past
+        // the end of its line or cell: in the next one. The pending send
+        // replaces the document with the editor's content anyway.
+        console.log("Skipping update - newer local edits not sent yet");
       } else {
         // Pass full markdown (including frontmatter) to the rich-text editor
         // Frontmatter is rendered as a code block by the Frontmatter node
@@ -198,6 +210,7 @@ export function EditorHost(props: IEditorHostProps) {
       }, 200),
     [messageBroker]
   );
+  hasUnsentEditsRef.current = handleOutlineChange.pending;
 
   const handleMarkdownChange = useCallback(
     (value: string) => {

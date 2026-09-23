@@ -39,6 +39,11 @@ export function debounce<T extends (...args: any) => any>(
     }, timeout);
   };
   
+  // Whether a call is still waiting for the timeout to run it.
+  debounced.pending = function () {
+    return timer !== undefined;
+  };
+
   debounced.flush = function() {
     if (timer) {
       clearTimeout(timer);
