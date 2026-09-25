@@ -126,7 +126,9 @@ export default function formattingMenuItems(
     },
     {
       name: "link",
-      tooltip: dictionary.createLink,
+      tooltip: isMarkActive(schema.marks.link)(state)
+        ? dictionary.editLink
+        : dictionary.createLink,
       icon: LinkIcon,
       active: isMarkActive(schema.marks.link),
       attrs: { href: "" },

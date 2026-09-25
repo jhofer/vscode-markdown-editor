@@ -62,14 +62,28 @@ function isVisible(props) {
   return some(nodes, n => n.content.size);
 }
 
-export default class SelectionToolbar extends React.Component<Props> {
+type State = {
+  /** The user asked to edit the link in the current selection. Selecting
+   *  linked text otherwise shows the normal formatting toolbar, so link text
+   *  can be selected, copied and formatted like any other text. */
+  editingLink: boolean;
+};
+
+export default class SelectionToolbar extends React.Component<Props, State> {
   isActive = false;
   menuRef = React.createRef<HTMLDivElement>();
+
+  state: State = {
+    editingLink: false,
+  };
 
   componentDidUpdate(): void {
     const visible = isVisible(this.props);
     if (this.isActive && !visible) {
       this.isActive = false;
+      if (this.state.editingLink) {
+        this.setState({ editingLink: false });
+      }
       this.props.onClose();
     }
     if (!this.isActive && visible) {
@@ -175,6 +189,19 @@ export default class SelectionToolbar extends React.Component<Props> {
     }
   };
 
+  /** The link button edits an existing link instead of removing it; removing
+   *  is available from the link editor itself. */
+  menuCommands(linkActive: boolean): Record<string, any> {
+    const { commands } = this.props;
+    if (!linkActive || !commands.link) {
+      return commands;
+    }
+    return {
+      ...commands,
+      link: () => this.setState({ editingLink: true }),
+    };
+  }
+
   render() {
     const {
       dictionary,
@@ -205,6 +232,10 @@ export default class SelectionToolbar extends React.Component<Props> {
     const isTableSelection = colIndex !== undefined && rowIndex !== undefined;
     const link = isMarkActive(state.schema.marks.link)(state);
     const range = getMarkRange(selection.$from, state.schema.marks.link);
+    // A link that was just created from the toolbar has no href yet, so jump
+    // straight into editing it; existing links are only edited on request.
+    const showLinkEditor =
+      link && range && (this.state.editingLink || !range.mark.attrs.href);
     const isImageSelection =
       selection.node && selection.node.type.name === "image";
     let isTextSelection = false;
@@ -253,7 +284,7 @@ export default class SelectionToolbar extends React.Component<Props> {
           active={isVisible(this.props)}
           ref={this.menuRef}
         >
-          {link && range ? (
+          {showLinkEditor && range ? (
             <LinkEditor
               dictionary={dictionary}
               mark={range.mark}
@@ -264,7 +295,11 @@ export default class SelectionToolbar extends React.Component<Props> {
               {...rest}
             />
           ) : (
-            <ToolbarMenu items={items} {...rest} />
+            <ToolbarMenu
+              items={items}
+              {...rest}
+              commands={this.menuCommands(link)}
+            />
           )}
         </FloatingToolbar>
       </Portal>

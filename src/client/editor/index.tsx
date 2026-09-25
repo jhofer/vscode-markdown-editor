@@ -25,6 +25,7 @@ import SelectionToolbar from "./components/SelectionToolbar";
 import BlockMenu from "./components/BlockMenu";
 import EmojiMenu from "./components/EmojiMenu";
 import LinkToolbar from "./components/LinkToolbar";
+import LinkPreviewToolbar from "./components/LinkPreviewToolbar";
 import SearchToolbar from "./components/SearchToolbar";
 import Tooltip from "./components/Tooltip";
 import Extension from "./lib/Extension";
@@ -1112,6 +1113,19 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
                   onClickLink={this.props.onClickLink}
                   onShowToast={this.props.onShowToast}
                   onClose={this.handleCloseLinkMenu}
+                  tooltip={tooltip}
+                />
+                <LinkPreviewToolbar
+                  view={this.view}
+                  dictionary={dictionary}
+                  isActive={
+                    this.state.isEditorFocused &&
+                    !this.state.linkMenuOpen &&
+                    !this.state.searchOpen
+                  }
+                  onEdit={this.handleOpenLinkMenu}
+                  onClickLink={this.props.onClickLink}
+                  onShowToast={this.props.onShowToast}
                   tooltip={tooltip}
                 />
                 <EmojiMenu
