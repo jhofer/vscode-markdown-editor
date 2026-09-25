@@ -146,6 +146,7 @@ export default class LinkToolbar extends React.Component<Props> {
             onCreateLink={onCreateLink ? this.handleOnCreateLink : undefined}
             onSelectLink={this.handleOnSelectLink}
             onRemoveLink={onClose}
+            onClose={onClose}
             {...rest}
           />
         )}

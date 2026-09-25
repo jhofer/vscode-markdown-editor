@@ -1,9 +1,43 @@
 import { toggleMark } from "prosemirror-commands";
-import { Plugin } from "prosemirror-state";
+import { EditorState, Plugin, TextSelection } from "prosemirror-state";
+import { MarkType } from "prosemirror-model";
 import { InputRule } from "prosemirror-inputrules";
 import Mark from "./Mark";
 
 const LINK_INPUT_REGEX = /\[([^[]+)]\((\S+)\)$/;
+
+const isMac =
+  typeof navigator !== "undefined" &&
+  /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+
+/** Ctrl+Click (Cmd+Click on macOS) follows a link, like in VS Code's own
+ *  editors. A plain click only places the cursor so link text can be edited
+ *  and selected like any other text. */
+export function isFollowLinkClick(event: MouseEvent | KeyboardEvent): boolean {
+  return isMac ? event.metaKey : event.ctrlKey;
+}
+
+export const followLinkHint = isMac ? "Cmd+Click" : "Ctrl+Click";
+export const editLinkHint = isMac ? "Cmd+K" : "Ctrl+K";
+
+function closestAnchor(target: EventTarget | null): HTMLAnchorElement | null {
+  if (target instanceof HTMLAnchorElement) return target;
+  return target instanceof Element ? target.closest("a") : null;
+}
+
+/** Position of the first linked character within the selection, if any. */
+function firstLinkPos(state: EditorState, type: MarkType): number | undefined {
+  const { from, to } = state.selection;
+  let found: number | undefined;
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (found !== undefined) return false;
+    if (node.isText && type.isInSet(node.marks)) {
+      found = Math.max(from, pos);
+    }
+    return true;
+  });
+  return found;
+}
 
 function isPlainURL(link, parent, index, side) {
   if (link.attrs.title || !/^\w+:/.test(link.attrs.href)) {
@@ -90,6 +124,21 @@ export default class Link extends Mark {
           return true;
         }
 
+        // Selection touches an existing link: edit that link rather than
+        // toggling it off. The link editor works on the link around the cursor.
+        const linkPos = firstLinkPos(state, type);
+        if (linkPos !== undefined) {
+          if (dispatch) {
+            dispatch(
+              state.tr.setSelection(
+                TextSelection.create(state.doc, linkPos)
+              )
+            );
+          }
+          this.options.onKeyboardShortcut();
+          return true;
+        }
+
         return toggleMark(type, { href: "" })(state, dispatch);
       },
     };
@@ -98,6 +147,26 @@ export default class Link extends Mark {
   get plugins() {
     return [
       new Plugin({
+        view: view => {
+          const toggle = (event: KeyboardEvent | MouseEvent) =>
+            view.dom.classList.toggle(
+              "follow-links",
+              isFollowLinkClick(event)
+            );
+          const clear = () => view.dom.classList.remove("follow-links");
+          window.addEventListener("keydown", toggle);
+          window.addEventListener("keyup", toggle);
+          window.addEventListener("mousemove", toggle);
+          window.addEventListener("blur", clear);
+          return {
+            destroy: () => {
+              window.removeEventListener("keydown", toggle);
+              window.removeEventListener("keyup", toggle);
+              window.removeEventListener("mousemove", toggle);
+              window.removeEventListener("blur", clear);
+            },
+          };
+        },
         props: {
           handleDOMEvents: {
             mouseover: (_view, event: MouseEvent) => {
@@ -111,20 +180,34 @@ export default class Link extends Mark {
               }
               return false;
             },
-            click: (_view, event: MouseEvent) => {
-              const target = event.target;
-              const anchor =
-                target instanceof HTMLAnchorElement
-                  ? target
-                  : target instanceof Element
-                    ? target.closest("a")
-                    : null;
+            // Ctrl/Cmd+mousedown would otherwise make ProseMirror select the
+            // whole paragraph just before the click follows the link.
+            mousedown: (view, event: MouseEvent) => {
+              if (
+                view.editable &&
+                isFollowLinkClick(event) &&
+                closestAnchor(event.target)
+              ) {
+                event.preventDefault();
+                return true;
+              }
+              return false;
+            },
+            click: (view, event: MouseEvent) => {
+              const anchor = closestAnchor(event.target);
 
-              if (anchor instanceof HTMLAnchorElement) {
+              if (anchor) {
                 // Keep the original markdown href (relative paths, hashes, etc.)
                 // instead of the browser-resolved absolute URL.
                 const rawHref = anchor.getAttribute("href") || "";
                 const href = rawHref || anchor.href;
+
+                // While editing, a plain click (or the click that ends a drag
+                // selection) must only move the cursor, never navigate away.
+                if (view.editable && !isFollowLinkClick(event)) {
+                  event.preventDefault();
+                  return false;
+                }
 
                 const isHashtag = href.startsWith("#");
                 if (isHashtag && this.options.onClickHashtag) {

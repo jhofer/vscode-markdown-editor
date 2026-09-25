@@ -40,6 +40,8 @@ type Props = {
   tooltip: typeof React.Component | React.FC<any>;
   dictionary: typeof baseDictionary;
   onRemoveLink?: () => void;
+  /** Called when editing is cancelled with Escape. */
+  onClose?: () => void;
   onCreateLink?: (title: string) => Promise<void>;
   onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onSelectLink: (options: {
@@ -178,7 +180,12 @@ class LinkEditor extends React.Component<Props, State> {
         event.preventDefault();
 
         if (this.initialValue) {
-          this.setState({ value: this.initialValue }, this.moveSelectionToEnd);
+          // Discard any edits to the title or URL and go back to the text.
+          this.discardInputValue = true;
+          this.setState({ value: this.initialValue }, () => {
+            this.moveSelectionToEnd();
+            this.props.onClose?.();
+          });
         } else {
           this.handleRemoveLink();
         }
@@ -228,6 +235,8 @@ class LinkEditor extends React.Component<Props, State> {
     if (event.key === "Enter") {
       event.preventDefault();
       this.urlInputRef.current?.focus();
+    } else if (event.key === "Escape") {
+      this.handleKeyDown(event);
     }
   };
 

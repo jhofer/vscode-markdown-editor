@@ -44,6 +44,8 @@ export const base = {
   newLineWithSlash: "Keep typing to filter…",
   noResults: "No results",
   openLink: "Open link",
+  editLink: "Edit link",
+  copyLink: "Copy link",
   orderedList: "Ordered list",
   pageBreak: "Page break",
   pasteLink: "Paste a link…",

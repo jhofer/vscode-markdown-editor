@@ -467,11 +467,17 @@ export const StyledEditor = styled("div")<{
 
   a {
     color: ${props => props.theme.link};
-    cursor: pointer;
+    cursor: ${props => (props.readOnly ? "pointer" : "text")};
   }
 
   a:hover {
     text-decoration: ${props => (props.readOnly ? "underline" : "none")};
+  }
+
+  /* Ctrl/Cmd held: links can be followed with a click */
+  .follow-links a:hover {
+    cursor: pointer;
+    text-decoration: underline;
   }
 
   ul,
