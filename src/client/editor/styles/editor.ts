@@ -98,6 +98,57 @@ export const StyledEditor = styled("div")<{
 
   /* In-document search (prosemirror-search) — mirrors the raw editor's
      .cm-searchMatch rules so highlights track the VS Code theme. */
+  /* Azure DevOps wiki references (plugins/AzureDevOps.ts) */
+  .ado-hidden {
+    display: none;
+  }
+
+  .ado-reference {
+    color: ${props => props.theme.link};
+  }
+
+  .ado-work-item {
+    display: inline;
+    padding: 1px 6px 1px 4px;
+    border-left: 3px solid var(--ado-type-color, ${props => props.theme.textSecondary});
+    border-radius: 2px;
+    background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1));
+    color: ${props => props.theme.text};
+    text-decoration: none;
+    white-space: normal;
+  }
+
+  .ado-work-item-id {
+    color: ${props => props.theme.link};
+  }
+
+  .ado-work-item-state {
+    color: ${props => props.theme.textSecondary};
+    font-size: 0.9em;
+    white-space: nowrap;
+
+    &::before {
+      content: "";
+      display: inline-block;
+      width: 0.6em;
+      height: 0.6em;
+      margin-right: 0.3em;
+      border-radius: 50%;
+      background: var(--ado-state-color, ${props => props.theme.textSecondary});
+    }
+  }
+
+  .follow-links .ado-work-item {
+    cursor: pointer;
+  }
+
+  .ado-mention {
+    padding: 0 2px;
+    border-radius: 3px;
+    color: ${props => props.theme.link};
+    background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1));
+  }
+
   .ProseMirror-search-match {
     background: var(--vscode-editor-findMatchHighlightBackground, #ea5c0055);
     border-radius: 2px;

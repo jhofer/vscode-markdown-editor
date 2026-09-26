@@ -21,6 +21,7 @@ import { initMessage } from "../common/messages/init";
 import { requestCompletionMessage } from "../common/messages/requestCompletion";
 import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
 import { dropResourcesMessage } from "../common/messages/dropResources";
+import { resolveAzureDevOpsMessage } from "../common/messages/resolveAzureDevOps";
 import {
   DroppedResource,
   isImagePath,
@@ -36,6 +37,7 @@ import {
 } from "./inlineSvg";
 import { CopilotProvider } from "./copilotProvider";
 import { PlantUmlRenderer } from "./plantUmlRenderer";
+import { AzureDevOpsClient, getAzureDevOpsPat } from "./azureDevOpsClient";
 import { stripTrailingBlankLines } from "../common/stripTrailingBlankLines";
 import {
   Diagram,
@@ -99,6 +101,7 @@ export class RichMarkdownEditorProvider
   private editors: Map<string, EditorContext> = new Map();
   private copilotProvider = new CopilotProvider();
   private plantUmlRenderer: PlantUmlRenderer;
+  private azureDevOpsClient = new AzureDevOpsClient();
 
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new RichMarkdownEditorProvider(context);
@@ -113,6 +116,13 @@ export class RichMarkdownEditorProvider
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.plantUmlRenderer = new PlantUmlRenderer(context.extensionUri.fsPath);
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration("inkwell-md.azureDevOps")) {
+          this.azureDevOpsClient.clear();
+        }
+      }),
+    );
   }
 
   dataURItoBuffer = (dataURI: string) => {
@@ -586,6 +596,43 @@ export class RichMarkdownEditorProvider
       },
     );
 
+    // Register handler for Azure DevOps work item / user lookups
+    messageBroker.registerHandler(
+      resolveAzureDevOpsMessage.requestType,
+      async (message: unknown) => {
+        const msg = message as IMessage<{
+          workItemIds: number[];
+          userIds: string[];
+        }>;
+        try {
+          const organization = this.azureDevOpsClient.resolveOrganization(
+            this.findGitRepositoryRoot(ctx.document.uri.fsPath),
+          );
+          if (!organization) {
+            ctx.messageBroker.sendMessage(
+              resolveAzureDevOpsMessage.error(
+                "No Azure DevOps organization: set inkwell-md.azureDevOps.organization",
+              ),
+            );
+            return;
+          }
+          const result = await this.azureDevOpsClient.resolve(
+            organization,
+            msg.payload.workItemIds ?? [],
+            msg.payload.userIds ?? [],
+          );
+          ctx.messageBroker.sendMessage(
+            resolveAzureDevOpsMessage.response(result),
+          );
+        } catch (error) {
+          logger.logError(error);
+          ctx.messageBroker.sendMessage(
+            resolveAzureDevOpsMessage.error(String(error)),
+          );
+        }
+      },
+    );
+
     // Send init message to the webview
     const msg = initMessage.response();
     messageBroker.sendMessage(msg);
@@ -963,6 +1010,8 @@ export class RichMarkdownEditorProvider
       .getConfiguration("inkwell-md")
       .get("plantumlExternalFiles", DEFAULT_PLANTUML_EXTERNAL_FILES);
 
+    const azureDevOpsEnabled = getAzureDevOpsPat() !== "";
+
     const docUri = vscode.Uri.parse(documentUri);
     const plantumlBaseName = path.basename(
       docUri.fsPath,
@@ -1040,6 +1089,7 @@ export class RichMarkdownEditorProvider
           window.__RME_PLANTUML_BASENAME__ = ${JSON.stringify(
             plantumlBaseName,
           )};
+          window.__RME_AZURE_DEVOPS__ = ${JSON.stringify(azureDevOpsEnabled)};
         </script>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>

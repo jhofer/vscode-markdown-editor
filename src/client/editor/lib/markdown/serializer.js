@@ -482,7 +482,12 @@ export class MarkdownSerializerState {
     str = str.replace(/\[(?=[^\]\n]*\][([])/g, "\\$&");
 
     if (startOfLine) {
-      str = str.replace(/^[:#\-*+]/, "\\$&").replace(/^(\d+)\./, "$1\\.");
+      // `#` only opens a heading when followed by a space or the line end;
+      // `#123` (an Azure DevOps work item reference) must stay unescaped.
+      str = str
+        .replace(/^[:\-*+]/, "\\$&")
+        .replace(/^#(?=#{0,5}(\s|$))/, "\\$&")
+        .replace(/^(\d+)\./, "$1\\.");
     }
 
     if (this.inTable) {

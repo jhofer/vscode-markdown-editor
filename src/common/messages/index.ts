@@ -8,3 +8,4 @@ export * from "./init";
 export * from "./requestCompletion";
 export * from "./renderPlantUml";
 export * from "./dropResources";
+export * from "./resolveAzureDevOps";
