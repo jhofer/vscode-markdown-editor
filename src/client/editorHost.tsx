@@ -25,6 +25,9 @@ import { renderPlantUmlMessage } from "../common/messages/renderPlantUml";
 import { dropResourcesMessage } from "../common/messages/dropResources";
 import { DroppedResource } from "../common/droppedResources";
 import { CodeMirrorEditor } from "./rawEditor";
+import { resolveAzureDevOpsMessage } from "../common/messages/resolveAzureDevOps";
+import { AzureDevOpsStore } from "./editor/lib/azureDevOpsStore";
+import { getEditorSettings } from "./editor/lib/editorSettings";
 
 type searchResultCallback = (results: SearchResult[]) => void;
 
@@ -166,6 +169,30 @@ export function EditorHost(props: IEditorHostProps) {
       }
     });
   });
+
+  // Work items / users referenced from the document, looked up by the host
+  // with the Azure DevOps token from the user settings. Only when one is set.
+  const azureDevOpsStore = useMemo(
+    () =>
+      getEditorSettings().azureDevOps
+        ? new AzureDevOpsStore((workItemIds, userIds) =>
+            messageBroker.sendMessage(
+              resolveAzureDevOpsMessage.request(workItemIds, userIds)
+            )
+          )
+        : undefined,
+    [messageBroker]
+  );
+  useEffect(() => {
+    if (!azureDevOpsStore) {
+      return;
+    }
+    messageBroker.registerHandler(
+      resolveAzureDevOpsMessage,
+      (payload) => azureDevOpsStore.merge(payload),
+      (error) => console.warn("Azure DevOps lookup failed:", error)
+    );
+  }, [messageBroker, azureDevOpsStore]);
 
   const searchLink = useBidirectionalEvent(messageBroker, searchLinkMessage);
   const requestCompletion = useBidirectionalEvent(
@@ -317,6 +344,7 @@ export function EditorHost(props: IEditorHostProps) {
       onClickLink={handleClickLink}
       onGetImageData={urlLookUp}
       onRenderPlantUml={renderPlantUml}
+      azureDevOpsStore={azureDevOpsStore}
       onSave={handleSave}
       autoFocus
     />

@@ -94,6 +94,8 @@ import Keys from "./plugins/Keys";
 import MaxLength from "./plugins/MaxLength";
 import Placeholder from "./plugins/Placeholder";
 import Search from "./plugins/Search";
+import AzureDevOps from "./plugins/AzureDevOps";
+import { AzureDevOpsStore } from "./lib/azureDevOpsStore";
 import SmartText from "./plugins/SmartText";
 import TrailingNode from "./plugins/TrailingNode";
 import PasteHandler from "./plugins/PasteHandler";
@@ -175,6 +177,11 @@ export type Props = {
   onRenderPlantUml?: (
     source: string
   ) => Promise<{ imageData: string; mimeType: "image/svg+xml" }>;
+  /**
+   * Resolves Azure DevOps work item / user references; when set, they are
+   * rendered like the Azure DevOps wiki does.
+   */
+  azureDevOpsStore?: AzureDevOpsStore;
   onClickLink: (href: string, event: MouseEvent) => void;
   onHoverLink?: (event: MouseEvent) => boolean;
   onClickHashtag?: (tag: string, event: MouseEvent) => void;
@@ -657,6 +664,9 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             onAcceptCompletion: this.acceptCompletion,
             onDismissCompletion: this.dismissCompletion,
             hasPendingCompletion: this.hasPendingCompletionRequest,
+          }),
+          new AzureDevOps({
+            store: this.props.azureDevOpsStore,
           }),
           new Search({
             onOpen: this.handleOpenSearch,

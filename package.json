@@ -69,6 +69,18 @@
           "markdownDescription": "Folder (relative to the git repository root, or the workspace folder if the file is not in a repo) where SVGs generated from external PlantUML files are written. Only used when `#inkwell-md.plantumlExternalFiles#` is enabled. Reopen the editor for a change to take effect.",
           "default": ".attachments",
           "scope": "window"
+        },
+        "inkwell-md.azureDevOps.personalAccessToken": {
+          "type": "string",
+          "markdownDescription": "Azure DevOps personal access token (needs the **Work Items (Read)** and **Identity (Read)** scopes). When set, the rich text editor renders work item references (`#123`) and user mentions (`@<user-id>`) like the Azure DevOps wiki does. Only settable in user settings, so it never ends up in a committed workspace `settings.json`. Reopen the editor for a change to take effect.",
+          "default": "",
+          "scope": "application"
+        },
+        "inkwell-md.azureDevOps.organization": {
+          "type": "string",
+          "markdownDescription": "Azure DevOps organization to look up work items and users in, as a name (`contoso`) or URL (`https://dev.azure.com/contoso`). When empty, it is taken from the git remote of the repository containing the markdown file. Only used when `#inkwell-md.azureDevOps.personalAccessToken#` is set.",
+          "default": "",
+          "scope": "window"
         }
       }
     }

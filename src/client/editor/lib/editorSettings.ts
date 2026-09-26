@@ -20,6 +20,12 @@ export interface EditorSettings {
   plantumlExternal: boolean;
   /** The markdown document's basename (no extension), used as the name prefix. */
   plantumlBaseName: string;
+  /**
+   * When true, an Azure DevOps personal access token is configured and
+   * `#123` work item / `@<guid>` user references are rendered like the Azure
+   * DevOps wiki does (see plugins/AzureDevOps.ts).
+   */
+  azureDevOps: boolean;
 }
 
 export function getEditorSettings(): EditorSettings {
@@ -36,5 +42,6 @@ export function getEditorSettings(): EditorSettings {
       typeof globals?.__RME_PLANTUML_BASENAME__ === "string"
         ? (globals.__RME_PLANTUML_BASENAME__ as string)
         : "diagram",
+    azureDevOps: globals?.__RME_AZURE_DEVOPS__ === true,
   };
 }
