@@ -14,6 +14,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   Then do all work for that request inside `.worktrees/<branch-name>`.
 - `.worktrees/` is gitignored — don't commit anything from it into the main working tree.
 
+# Keeping README.md in sync
+
+`README.md` is the user-facing documentation shipped with the extension (it is the Marketplace page). It must describe the actual implementation, so update it **in the same change** whenever you touch anything a user can see:
+
+- **Settings** — every property under `contributes.configuration` in `package.json` must appear in the README's Settings table with the same key and the same default as `package.json` (and `src/host/constants.ts`, where defaults are also hard-coded). Adding, removing, renaming or changing the default of a setting means updating that table.
+- **Features** — new or changed slash-menu items (`src/client/editor/menus/block.ts`), nodes/marks/plugins, toolbar buttons (`editorHost.tsx`), link/image/file handling, or host integrations (PlantUML, Mermaid, Copilot, Azure DevOps) need a matching entry under Features.
+- **Keyboard shortcuts** — the shortcuts table mirrors the `keys()` of the editor extensions and `plugins/Keys.ts`; update it when a binding changes.
+- **Requirements** — changes to the VS Code engine version (`engines.vscode`), the bundled PlantUML jar / Java version (`scripts/preparePlantumlAssets.js`), or the Copilot model list (`copilotProvider.ts`) must be reflected in Requirements.
+
+Describe behavior from the user's point of view, and verify claims against the code rather than against older README text. Don't document internal/dev-only details there — those belong in this file.
+
 # Commands
 
 - `npm run build` — production build (esbuild, minified): bundles both the extension host and the webview client.
