@@ -5,7 +5,8 @@
  * Azure DevOps wikis store two kinds of references as plain markdown text:
  *
  * - work items as `#123`, rendered as a link showing the item's type, title
- *   and state;
+ *   and state. Links to a work item (`https://dev.azure.com/org/project/_workitems/edit/123`,
+ *   bare or as a markdown link) are rendered the same way;
  * - people as `@<6f1d3e0a-...>` (the identity's GUID), rendered as
  *   `@Display Name`.
  */
@@ -30,7 +31,17 @@ export type UserInfo = {
 };
 
 export type AzureDevOpsReference =
-  | { kind: "workItem"; id: number; from: number; to: number }
+  | {
+      kind: "workItem";
+      id: number;
+      from: number;
+      to: number;
+      /**
+       * Lower-case organization name, when the reference is a link to the
+       * work item: it is only rendered if it's the organization looked up in.
+       */
+      organization?: string;
+    }
   | { kind: "user"; id: string; from: number; to: number };
 
 const GUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
@@ -40,21 +51,60 @@ const GUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-
 // by more word characters (`#12abc`).
 const WORK_ITEM = "(?<![\\w&/#])#(\\d{1,9})(?![\\w#])";
 const USER = `@<(${GUID})>`;
+// A work item's web URL on `dev.azure.com/{org}` or `{org}.visualstudio.com`,
+// with up to two path segments (collection, project) before `_workitems/edit/{id}`,
+// optionally followed by a slash, query or fragment.
+const WORK_ITEM_URL =
+  "https?://(?:[^@/\\s]+@)?(?:dev\\.azure\\.com/([^/\\s?#]+)|([^./@\\s]+)\\.visualstudio\\.com)" +
+  "(?:/[^/\\s?#]+){0,2}/_workitems/edit/(\\d{1,9})(?![\\w])/?(?:[?#][^\\s<>]*)?";
+
+function organizationName(encoded: string): string {
+  try {
+    return decodeURIComponent(encoded).toLowerCase();
+  } catch {
+    return encoded.toLowerCase();
+  }
+}
+
+/**
+ * The work item a link points to, if `href` is the web URL of an Azure DevOps
+ * work item.
+ */
+export function parseWorkItemUrl(
+  href: string
+): { organization: string; id: number } | undefined {
+  const match = new RegExp(`^${WORK_ITEM_URL}$`, "i").exec(href.trim());
+  if (!match) {
+    return undefined;
+  }
+  return {
+    organization: organizationName(match[1] ?? match[2]),
+    id: Number(match[3]),
+  };
+}
 
 /** Finds the work item and user references in a run of plain text. */
 export function findAzureDevOpsReferences(
   text: string
 ): AzureDevOpsReference[] {
-  const pattern = new RegExp(`${WORK_ITEM}|${USER}`, "g");
+  const pattern = new RegExp(`${WORK_ITEM_URL}|${WORK_ITEM}|${USER}`, "gi");
   const references: AzureDevOpsReference[] = [];
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text))) {
     const from = match.index;
     const to = from + match[0].length;
-    if (match[1] !== undefined) {
-      references.push({ kind: "workItem", id: Number(match[1]), from, to });
+    if (match[3] !== undefined) {
+      references.push({
+        kind: "workItem",
+        id: Number(match[3]),
+        from,
+        to,
+        organization: organizationName(match[1] ?? match[2]),
+      });
+    } else if (match[4] !== undefined) {
+      references.push({ kind: "workItem", id: Number(match[4]), from, to });
     } else {
-      references.push({ kind: "user", id: match[2].toLowerCase(), from, to });
+      references.push({ kind: "user", id: match[5].toLowerCase(), from, to });
     }
   }
   return references;

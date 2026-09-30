@@ -12,6 +12,20 @@ describe("collectReferences", () => {
     );
     expect(collectReferences(doc).map((r) => r.id)).toEqual([1, GUID]);
   });
+
+  test("treats a link to a work item as one reference over the link text", () => {
+    const url = "https://dev.azure.com/contoso/P/_workitems/edit/5";
+    const doc = parser.parse(`see [the **crash** bug](${url}) and <${url}>\n`);
+    const references = collectReferences(doc);
+    expect(references).toMatchObject([
+      { kind: "workItem", id: 5, organization: "contoso" },
+      { kind: "workItem", id: 5, organization: "contoso" },
+    ]);
+    expect(doc.textBetween(references[0].from, references[0].to)).toBe(
+      "the crash bug"
+    );
+    expect(doc.textBetween(references[1].from, references[1].to)).toBe(url);
+  });
 });
 
 describe("AzureDevOpsStore", () => {
@@ -82,6 +96,26 @@ describe("AzureDevOps decorations", () => {
     expect(decorations(onReference).map((d: any) => d.type.attrs?.class)).toEqual([
       "ado-reference",
     ]);
+  });
+
+  test("renders a link to a work item, but only in the organization looked up", () => {
+    const { store, state, decorations } = setup(
+      `[bug](https://dev.azure.com/contoso/P/_workitems/edit/1) ` +
+        `[other](https://dev.azure.com/fabrikam/P/_workitems/edit/1) end\n`
+    );
+    store.merge({ workItems: { 1: workItem }, users: {} });
+    const moved = state.apply(
+      state.tr.setSelection(TextSelection.atEnd(state.doc))
+    );
+    const found = decorations(moved);
+    // Only the first link is hidden behind a widget; the other is left alone.
+    expect(found).toHaveLength(2);
+    const hidden = found.find((d: any) => d.type.attrs?.class === "ado-hidden");
+    expect(moved.doc.textBetween(hidden.from, hidden.to)).toBe("bug");
+    const widget = found.find((d: any) => d.type.toDOM);
+    expect((widget.type.toDOM() as HTMLElement).textContent).toBe(
+      "#1 Crash on save Active"
+    );
   });
 
   test("renders a user mention as its display name", () => {

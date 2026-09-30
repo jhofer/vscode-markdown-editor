@@ -1,4 +1,4 @@
-import { Node as ProsemirrorNode } from "prosemirror-model";
+import { Mark, Node as ProsemirrorNode } from "prosemirror-model";
 import { EditorState, Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import Extension from "../lib/Extension";
@@ -9,6 +9,7 @@ import {
   UserInfo,
   WorkItemInfo,
   findAzureDevOpsReferences,
+  parseWorkItemUrl,
 } from "../../../common/azureDevOps";
 
 const pluginKey = new PluginKey<PluginState>("azureDevOps");
@@ -18,9 +19,13 @@ type PluginState = {
   decorations: DecorationSet;
 };
 
-/** Every work item / user reference in the document, at document positions. */
+/**
+ * Every work item / user reference in the document, at document positions.
+ * A link to a work item counts as a reference spanning the whole link text.
+ */
 export function collectReferences(doc: ProsemirrorNode): AzureDevOpsReference[] {
   const references: AzureDevOpsReference[] = [];
+  let previousLink: { mark: Mark; reference: AzureDevOpsReference } | undefined;
   doc.descendants((node, pos) => {
     if (node.type.spec.code || node.type.name === "frontmatter") {
       return false;
@@ -28,11 +33,32 @@ export function collectReferences(doc: ProsemirrorNode): AzureDevOpsReference[] 
     if (!node.isText || !node.text) {
       return true;
     }
-    if (
-      node.marks.some(
-        (mark) => mark.type.name === "code_inline" || mark.type.name === "link"
-      )
-    ) {
+    if (node.marks.some((mark) => mark.type.name === "code_inline")) {
+      return false;
+    }
+    const link = node.marks.find((mark) => mark.type.name === "link");
+    if (link) {
+      // A link split over several text nodes (e.g. partly bold) is one reference.
+      if (
+        previousLink &&
+        previousLink.mark.eq(link) &&
+        previousLink.reference.to === pos
+      ) {
+        previousLink.reference.to = pos + node.nodeSize;
+        return false;
+      }
+      const target = parseWorkItemUrl(String(link.attrs.href ?? ""));
+      if (target) {
+        const reference: AzureDevOpsReference = {
+          kind: "workItem",
+          id: target.id,
+          from: pos,
+          to: pos + node.nodeSize,
+          organization: target.organization,
+        };
+        references.push(reference);
+        previousLink = { mark: link, reference };
+      }
       return false;
     }
     for (const reference of findAzureDevOpsReferences(node.text)) {
@@ -101,6 +127,17 @@ function buildDecorations(
       // Looked up, but unknown (or not accessible): leave the text alone.
       continue;
     }
+    const linkOrganization =
+      reference.kind === "workItem" ? reference.organization : undefined;
+    if (
+      linkOrganization !== undefined &&
+      info !== undefined &&
+      parseWorkItemUrl((info as WorkItemInfo).url)?.organization !==
+        linkOrganization
+    ) {
+      // A link into another organization than the one the id was looked up in.
+      continue;
+    }
     // Show the raw markdown while the cursor is on it, so it stays editable.
     const editing = selectionFrom <= reference.to && selectionTo >= reference.from;
     if (info === undefined || editing) {
@@ -125,6 +162,8 @@ function buildDecorations(
         {
           side: -1,
           ignoreSelection: true,
+          // Keep a work item link's own <a> from wrapping the rendered one.
+          marks: linkOrganization !== undefined ? [] : undefined,
           key:
             reference.kind === "workItem"
               ? `ado-wi-${JSON.stringify(info)}`
@@ -139,8 +178,8 @@ function buildDecorations(
 
 /**
  * Renders Azure DevOps wiki references the way the Azure DevOps wiki does:
- * `#123` as the work item (type colour, title and state, Ctrl/Cmd+click to
- * open) and `@<guid>` as `@Display Name`. The markdown itself is untouched;
+ * `#123` and links to a work item as the work item (type colour, title and
+ * state, Ctrl/Cmd+click to open) and `@<guid>` as `@Display Name`. The markdown itself is untouched;
  * moving the cursor onto a reference reveals its source for editing.
  *
  * Only registered when an Azure DevOps personal access token is configured.

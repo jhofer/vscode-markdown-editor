@@ -164,7 +164,11 @@ renders the references Azure DevOps wikis store as plain text the way the wiki
 itself does:
 
 * **Work items** — `#123` is shown as a link with the work item's type, title
-  and state.
+  and state. Links to a work item are shown the same way, whether pasted as a
+  bare URL or written as a markdown link (`[text](url)` or `<url>`):
+  `https://dev.azure.com/{org}/{project}/_workitems/edit/123` or
+  `https://{org}.visualstudio.com/{project}/_workitems/edit/123`. Links into an
+  organization other than the one being looked up in are left as they are.
 * **User mentions** — `@<user-guid>` is shown as `@Display Name`.
 
 The markdown on disk is not changed. To set it up:
@@ -219,7 +223,7 @@ take effect.
 | `inkwell-md.preserveEmptyParagraphs` | `false` | Preserve intentional empty paragraphs (blank lines) when saving by writing a `\` on each empty line. See [below](#preserving-empty-paragraphs). |
 | `inkwell-md.plantumlExternalFiles` | `true` | Store PlantUML sources in a `<name>.plantuml` sidecar file and keep only a generated SVG image link in the markdown, instead of an inline fenced code block. See [below](#external-plantuml-files). |
 | `inkwell-md.plantumlAttachmentsFolder` | `.attachments` | Folder (relative to the git repository root, or the workspace folder if the file isn't in a repo) where SVGs generated from external PlantUML files are written. Only used when `plantumlExternalFiles` is enabled. |
-| `inkwell-md.azureDevOps.personalAccessToken` | *(empty)* | Azure DevOps personal access token (**Work Items (Read)** and **Identity (Read)** scopes). When set, work item references (`#123`) and user mentions (`@<user-id>`) are rendered like the Azure DevOps wiki does. User settings only. See [Azure DevOps wikis](#azure-devops-wikis). |
+| `inkwell-md.azureDevOps.personalAccessToken` | *(empty)* | Azure DevOps personal access token (**Work Items (Read)** and **Identity (Read)** scopes). When set, work item references (`#123` and links to work items) and user mentions (`@<user-id>`) are rendered like the Azure DevOps wiki does. User settings only. See [Azure DevOps wikis](#azure-devops-wikis). |
 | `inkwell-md.azureDevOps.organization` | *(empty)* | Azure DevOps organization to look up work items and users in, as a name (`contoso`) or URL (`https://dev.azure.com/contoso`). When empty, it's taken from the git remote of the repository containing the markdown file. Only used when a personal access token is set. Takes effect on the next lookup. |
 
 ### Preserving empty paragraphs
