@@ -2,6 +2,7 @@ import {
   findAzureDevOpsReferences,
   parseAzureDevOpsOrganization,
   parseAzureDevOpsRemote,
+  parseWorkItemUrl,
 } from "../common/azureDevOps";
 
 const GUID = "6f1d3e0a-1b2c-4d5e-8f90-a1b2c3d4e5f6";
@@ -31,6 +32,36 @@ describe("findAzureDevOpsReferences", () => {
     ["a mention without a guid", "@<someone>"],
   ])("ignores %s", (_name, text) => {
     expect(findAzureDevOpsReferences(text)).toEqual([]);
+  });
+});
+
+describe("work item links", () => {
+  test.each([
+    ["https://dev.azure.com/contoso/Project/_workitems/edit/123"],
+    ["https://dev.azure.com/contoso/Project/_workitems/edit/123/"],
+    ["https://dev.azure.com/Contoso/My%20Project/_workitems/edit/123?src=x#c"],
+    ["https://dev.azure.com/contoso/_workitems/edit/123"],
+    ["https://contoso.visualstudio.com/Project/_workitems/edit/123"],
+    ["https://contoso.visualstudio.com/DefaultCollection/Project/_workitems/edit/123"],
+  ])("%s", (url) => {
+    expect(parseWorkItemUrl(url)).toEqual({ organization: "contoso", id: 123 });
+  });
+
+  test.each([
+    ["another host", "https://example.com/contoso/Project/_workitems/edit/123"],
+    ["a query page", "https://dev.azure.com/contoso/Project/_workitems"],
+    ["trailing letters", "https://dev.azure.com/contoso/Project/_workitems/edit/123abc"],
+  ])("ignores %s", (_name, url) => {
+    expect(parseWorkItemUrl(url)).toBeUndefined();
+  });
+
+  test("finds bare work item urls in text", () => {
+    const url = "https://dev.azure.com/contoso/P/_workitems/edit/42";
+    const text = `See ${url}, and #7.`;
+    expect(findAzureDevOpsReferences(text)).toEqual([
+      { kind: "workItem", id: 42, from: 4, to: 4 + url.length, organization: "contoso" },
+      { kind: "workItem", id: 7, from: text.length - 3, to: text.length - 1 },
+    ]);
   });
 });
 
