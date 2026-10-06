@@ -31,6 +31,7 @@ import Tooltip from "./components/Tooltip";
 import Extension from "./lib/Extension";
 import ExtensionManager from "./lib/ExtensionManager";
 import ComponentView from "./lib/ComponentView";
+import { replaceDocument } from "./lib/replaceDocument";
 import headingToSlug from "./lib/headingToSlug";
 import { renderMermaid } from "./lib/mermaidRenderer";
 
@@ -171,6 +172,8 @@ export type Props = {
   onImageUploadStart?: () => void;
   onImageUploadStop?: () => void;
   onGetImageData?: (src: string) => string;
+  /** Bump when onGetImageData starts returning new URLs, to redraw images. */
+  imageLookupVersion?: number;
   onCreateLink?: (title: string) => Promise<string>;
   onSearchLink?: (term: string) => Promise<SearchResult[]>;
   onRequestCompletion?: (context: { prefix: string; suffix: string; mdContent: string; cursorPos: number; fileName: string }) => Promise<string[]>;
@@ -255,6 +258,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
   nodeViews: {
     [name: string]: (node, view, getPos, decorations) => ComponentView;
   };
+  // The node views currently in the document.
+  componentViews = new Set<ComponentView>();
   nodes: { [name: string]: NodeSpec };
   marks: { [name: string]: MarkSpec };
   commands: Record<string, any>;
@@ -479,21 +484,15 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     if (this.props.value && prevProps.value !== this.props.value) {
       const currentContent = this.value();
       if (!isBasicallySame(this.props.value, currentContent)) {
-        // Recreating the doc from markdown loses the previous ProseMirror
-        // selection entirely, and EditorState.create() defaults an unset
-        // selection to the very start of the document. Without restoring it
-        // explicitly, every externally-driven value update (e.g. an echo of
-        // our own edit coming back from the host, possibly reformatted)
-        // yanks the cursor back to the top of the document - very noticeable
-        // when typing quickly in larger documents where these updates land
-        // mid-typing. Preserve the caret's character offset (clamped to the
-        // new document's size) and restore focus if the editor had it.
-        const hadFocus = this.view.hasFocus();
-        const { head } = this.view.state.selection;
-        const newState = this.createState(this.props.value, head);
-        this.view.updateState(newState);
-        if (hadFocus) this.view.focus();
+        this.applyExternalValue(this.props.value);
       }
+    }
+
+    // Images whose webview URL just became known: render them again, in
+    // place, instead of remounting the editor (which would lose the cursor
+    // and focus).
+    if (prevProps.imageLookupVersion !== this.props.imageLookupVersion) {
+      this.rerenderNodeViews((view) => view.node.type.name === "image");
     }
 
     // pass readOnly changes through to underlying editor instance
@@ -731,7 +730,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       .filter((extension: ReactNode) => extension.component)
       .reduce((nodeViews, extension: ReactNode) => {
         const nodeView = (node, view, getPos, decorations) => {
-          return new ComponentView(extension.component, {
+          const componentView = new ComponentView(extension.component, {
             editor: this,
             extension,
             node,
@@ -739,6 +738,10 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
             getPos,
             decorations,
           });
+          this.componentViews.add(componentView);
+          componentView.onDestroy = () =>
+            this.componentViews.delete(componentView);
+          return componentView;
         };
 
         return {
@@ -789,6 +792,48 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       schema: this.schema,
       rules: { linkify: true },
       plugins: this.rulePlugins,
+    });
+  }
+
+  /**
+   * Loads markdown that came from outside (the host) into the editor while
+   * keeping the user's place: only the part of the document that differs is
+   * replaced (see replaceDocument), so the selection, the node views around
+   * it and whatever element has focus survive.
+   */
+  applyExternalValue(value: string) {
+    // view.hasFocus() is only true when the editable root itself is focused,
+    // not a nested editor inside a node view (diagram source, image caption).
+    const focusedElement = this.view.root.activeElement as HTMLElement | null;
+    const hadFocus =
+      !!focusedElement && this.view.dom.contains(focusedElement);
+
+    const { state } = this.view;
+    let newState: EditorState | undefined;
+    try {
+      const tr = replaceDocument(state, this.createDocument(value));
+      if (!tr) return;
+      newState = state.apply(tr);
+    } catch (error) {
+      console.warn("Falling back to a full document reload", error);
+    }
+    // Last resort: a fresh state, keeping the caret's offset (clamped to the
+    // new document) rather than letting it default to the document start.
+    this.view.updateState(
+      newState ?? this.createState(value, state.selection.head)
+    );
+
+    // Refocus only if the focused element went away with the update.
+    if (hadFocus && !this.view.dom.contains(this.view.root.activeElement)) {
+      this.view.focus();
+    }
+    // Toolbars and menus render from the view's state.
+    this.forceUpdate();
+  }
+
+  rerenderNodeViews(filter: (view: ComponentView) => boolean) {
+    this.componentViews.forEach((view) => {
+      if (filter(view)) view.renderElement();
     });
   }
 
