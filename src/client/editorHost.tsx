@@ -57,7 +57,7 @@ export function EditorHost(props: IEditorHostProps) {
   // Create a ref to store URL lookups that can be updated by message handler
   const urlLookupRef = useRef<Record<string, string>>({});
 
-  // Counter to force editor re-render when URL lookup changes
+  // Bumped when the URL lookup changes so the editor redraws its images
   const [urlLookupVersion, setUrlLookupVersion] = useState(0);
 
   // Track the last markdown we sent to avoid echo updates
@@ -119,7 +119,7 @@ export function EditorHost(props: IEditorHostProps) {
         if (hasNewUrls) {
           urlLookupRef.current = { ...urlLookupRef.current, ...urlLookup };
           console.log("Updated URL lookup:", urlLookupRef.current);
-          // Increment version to force editor re-render with new image URLs
+          // Bump the version so the editor redraws its images with the new URLs
           setUrlLookupVersion(v => v + 1);
         }
       }
@@ -330,7 +330,6 @@ export function EditorHost(props: IEditorHostProps) {
 
   const richTextEditor = (
     <Editor
-      key={`editor-${urlLookupVersion}`}
       placeholder={"Blank canvas..."}
       theme={vsCodeTheme}
       defaultValue={markdownText}
@@ -343,6 +342,7 @@ export function EditorHost(props: IEditorHostProps) {
       onDropResources={handleDropResources}
       onClickLink={handleClickLink}
       onGetImageData={urlLookUp}
+      imageLookupVersion={urlLookupVersion}
       onRenderPlantUml={renderPlantUml}
       azureDevOpsStore={azureDevOpsStore}
       onSave={handleSave}

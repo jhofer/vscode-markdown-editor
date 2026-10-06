@@ -27,6 +27,7 @@ export default class ComponentView {
   isSelected = false;
   dom: HTMLElement | null;
   root: Root | null;
+  onDestroy?: () => void;
 
   // See https://prosemirror.net/docs/ref/#view.NodeView
   constructor(
@@ -95,6 +96,7 @@ export default class ComponentView {
   }
 
   destroy() {
+    this.onDestroy?.();
     if (this.root) {
       this.root.unmount();
       this.root = null;
