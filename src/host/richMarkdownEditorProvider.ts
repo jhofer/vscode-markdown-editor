@@ -83,8 +83,10 @@ interface EditorContext {
   // onDidChangeTextDocument as each edit's change event fires (edits on one
   // document are applied and fire change events in the order they were
   // requested). Lets the client that sent them tell a superseded request's
-  // response apart from the one for its latest edit.
-  pendingRevisions: number[];
+  // response apart from the one for its latest edit. Each carries the text
+  // its edit leaves, so a change made by someone else in between (VS Code
+  // trimming whitespace as it saves) isn't mistaken for it.
+  pendingRevisions: { revision: number; text: string }[];
   // Chains document edits so each one is applied only after the previous one
   // has landed (see updateTextDocument).
   documentEdits: Promise<unknown>;
@@ -292,10 +294,15 @@ export class RichMarkdownEditorProvider
     const ctx = this.editors.get(e.document.uri.toString());
     if (ctx) {
       // If this change is satisfying one of our own queued edits, it's the
-      // oldest one still pending (see `pendingRevisions` on EditorContext).
-      // Otherwise (queue empty) this change came from outside our own
-      // requests entirely, and the update is unconditionally authoritative.
-      const revision = ctx.pendingRevisions.shift();
+      // oldest one still pending (see `pendingRevisions` on EditorContext)
+      // and the document now holds exactly its text. Otherwise this change
+      // came from outside our own requests, and is sent without a revision.
+      const pending = ctx.pendingRevisions[0];
+      let revision: number | undefined;
+      if (pending && e.document.getText() === pending.text) {
+        ctx.pendingRevisions.shift();
+        revision = pending.revision;
+      }
       this.updateWebview(ctx, revision);
     }
   }
@@ -1153,7 +1160,7 @@ export class RichMarkdownEditorProvider
     }
 
     if (revision !== undefined) {
-      ctx.pendingRevisions.push(revision);
+      ctx.pendingRevisions.push({ revision, text: sanitized });
     }
 
     const edit = new vscode.WorkspaceEdit();
@@ -1166,10 +1173,13 @@ export class RichMarkdownEditorProvider
     );
 
     const applied = await vscode.workspace.applyEdit(edit);
-    if (!applied && revision !== undefined) {
-      // No change event will fire to dequeue it; drop it so later edits'
-      // change events are still matched with their own revisions.
-      const index = ctx.pendingRevisions.indexOf(revision);
+    if (revision !== undefined) {
+      // Its change event has fired by now, if it was going to. Still queued
+      // means it never came (the edit failed) or didn't match (another change
+      // was folded into it); drop it so it can't hold up later edits.
+      const index = ctx.pendingRevisions.findIndex(
+        (pending) => pending.revision === revision,
+      );
       if (index !== -1) ctx.pendingRevisions.splice(index, 1);
     }
     return applied;

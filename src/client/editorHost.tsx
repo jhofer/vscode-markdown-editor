@@ -129,13 +129,13 @@ export function EditorHost(props: IEditorHostProps) {
       if (pendingUpdateRef.current && isBasicallySame(incomingMarkdown, lastSentMarkdownRef.current)) {
         console.log("Skipping echo update - content is the same");
         pendingUpdateRef.current = false;
-      } else if (revision !== undefined && hasUnsentEditsRef.current()) {
-        // The response to one of our own edits, but the user has typed on
-        // since and that isn't sent yet, so the editor is ahead of this
-        // snapshot. Loading it would roll those keystrokes back, and the
-        // caret, restored by offset into the now shorter text, would land past
-        // the end of its line or cell: in the next one. The pending send
-        // replaces the document with the editor's content anyway.
+      } else if (hasUnsentEditsRef.current()) {
+        // The user has typed on since and that isn't sent yet, so the editor
+        // is ahead of this snapshot, whether it answers one of our own edits
+        // or is a change from outside (VS Code trimming whitespace as it
+        // auto-saves, say). Loading it would roll those keystrokes back. The
+        // pending send replaces the whole document with the editor's content
+        // anyway.
         console.log("Skipping update - newer local edits not sent yet");
       } else {
         // Pass full markdown (including frontmatter) to the rich-text editor

@@ -102,11 +102,18 @@ export function restoreFrontmatter(
 }
 
 export function isBasicallySame(a = "", b = "") {
-  // Remove slashes and trailing whitespace, normalize EOL-characters to compare outline and vanilla markdown strings
-  return (
-    a.replace(SLASH_REG, "").replace(/\r\n/g, "\n").trim() ===
-    b.replace(SLASH_REG, "").replace(/\r\n/g, "\n").trim()
-  );
+  // Remove slashes and trailing whitespace, normalize EOL-characters to compare outline and vanilla markdown strings.
+  // Whitespace at the end of a line is ignored too: VS Code trims it when it
+  // saves (files.trimTrailingWhitespace), often right after the user typed a
+  // space at the end of the line they're on. Loading that version would eat
+  // the space and, with it, put the next word straight after the previous one.
+  const normalize = (text: string) =>
+    text
+      .replace(SLASH_REG, "")
+      .replace(/\r\n/g, "\n")
+      .replace(/[ \t]+$/gm, "")
+      .trim();
+  return normalize(a) === normalize(b);
 }
 
 export function formatText(text = "") {
