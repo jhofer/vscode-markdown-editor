@@ -346,6 +346,13 @@ export class MarkdownSerializerState {
   // delimiter for the first line of the item.
   renderList(node, delim, firstDelim) {
     if (this.closed && this.closed.type === node.type) this.flushClose(3);
+    else if (
+      node.attrs.joined &&
+      this.closed &&
+      this.closed.attrs.joined !== undefined
+    )
+      // continues the previous (checkbox / bullet) list as one markdown list
+      this.flushClose(1);
     else if (this.inTightList) this.flushClose(1);
 
     const isTight =
