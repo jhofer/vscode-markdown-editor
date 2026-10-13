@@ -9,6 +9,12 @@ export default class CheckboxList extends Node {
 
   get schema() {
     return {
+      attrs: {
+        // Set on a list parsed from the tail of a tight markdown list that
+        // mixed checkbox and plain items (rules/checkboxes.ts), so it is
+        // written directly below the preceding list, without a blank line.
+        joined: { default: false },
+      },
       group: "block",
       content: "checkbox_item+",
       toDOM: () => ["ul", { class: this.name }, 0],
@@ -39,6 +45,9 @@ export default class CheckboxList extends Node {
   }
 
   parseMarkdown() {
-    return { block: "checkbox_list" };
+    return {
+      block: "checkbox_list",
+      getAttrs: tok => ({ joined: tok.attrGet("joined") === "true" }),
+    };
   }
 }

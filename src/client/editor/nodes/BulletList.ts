@@ -14,6 +14,10 @@ export default class BulletList extends Node {
         // source markdown so the parse/serialize round trip is faithful and
         // opening a file doesn't spuriously mark it as dirty.
         bullet: { default: "-" },
+        // Set on a list parsed from the tail of a tight markdown list that
+        // mixed checkbox and plain items (rules/checkboxes.ts), so it is
+        // written directly below the preceding list, without a blank line.
+        joined: { default: false },
       },
       content: "list_item+",
       group: "block",
@@ -47,7 +51,10 @@ export default class BulletList extends Node {
   parseMarkdown() {
     return {
       block: "bullet_list",
-      getAttrs: tok => ({ bullet: tok.markup || "-" }),
+      getAttrs: tok => ({
+        bullet: tok.markup || "-",
+        joined: tok.attrGet("joined") === "true",
+      }),
     };
   }
 }
