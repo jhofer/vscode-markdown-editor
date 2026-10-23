@@ -41,6 +41,11 @@ automatically switches it to the rich editor.
 * To edit the raw text in VS Code's own text editor instead, use
   **Reopen Editor With… → Text Editor** from the tab's context menu or the
   Command Palette.
+* **Switching tabs is instant** — an editor in a background tab is kept
+  alive, so coming back to it keeps your scroll position, selection and the
+  editor's undo history.
+* **Large files open quickly** — the part of the document you are looking at
+  is shown first, and the rest is laid out in the background.
 
 The editor toolbar in the top-right corner has two buttons:
 

@@ -110,6 +110,14 @@ export class RichMarkdownEditorProvider
     const providerRegistration = vscode.window.registerCustomEditorProvider(
       RichMarkdownEditorProvider.viewType,
       provider,
+      {
+        // Keep the editor alive while its tab is in the background: coming
+        // back to it is then instant, with scroll position, selection and
+        // undo history intact, instead of reloading the webview and parsing
+        // and laying out the whole document again. Costs the memory of the
+        // hidden webviews.
+        webviewOptions: { retainContextWhenHidden: true },
+      },
     );
     return providerRegistration;
   }
