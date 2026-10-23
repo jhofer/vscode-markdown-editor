@@ -8,6 +8,106 @@ import uploadPlaceholderPlugin from "../lib/uploadPlaceholder";
 import insertFiles from "../commands/insertFiles";
 import Node from "./Node";
 import InlinePanZoomViewer from "../components/InlinePanZoomViewer";
+import { decodeSvgDataUri, isSvgImageSource } from "../components/ViewerImage";
+
+// Images no larger than this in either direction (icons, badges, small
+// logos) are shown as they are: the pan/zoom viewer's frame and toolbar
+// would be bigger than the image itself.
+export const SMALL_IMAGE_MAX_SIZE = 200;
+
+export function isSmallImage(width: number, height: number): boolean {
+  return (
+    width > 0 &&
+    height > 0 &&
+    width <= SMALL_IMAGE_MAX_SIZE &&
+    height <= SMALL_IMAGE_MAX_SIZE
+  );
+}
+
+/**
+ * Whether an inline SVG states its own pixel size. Browsers report a default
+ * size (e.g. 300x150) for an SVG with only a viewBox, which says nothing
+ * about how large the drawing is meant to be.
+ */
+function svgHasIntrinsicSize(src: string): boolean {
+  const svg = decodeSvgDataUri(src);
+  if (svg === undefined) {
+    return true;
+  }
+  const root = /<svg\b[^>]*>/i.exec(svg)?.[0] || "";
+  return /\swidth\s*=/i.test(root) && /\sheight\s*=/i.test(root);
+}
+
+type ImageSize = "pending" | "small" | "large";
+
+function useImageSize(src: string): ImageSize {
+  const [size, setSize] = React.useState<ImageSize>("pending");
+
+  React.useEffect(() => {
+    if (isSvgImageSource(src) && !svgHasIntrinsicSize(src)) {
+      setSize("large");
+      return;
+    }
+
+    let mounted = true;
+    setSize("pending");
+    const image = new window.Image();
+    image.onload = () => {
+      if (mounted) {
+        setSize(
+          isSmallImage(image.naturalWidth, image.naturalHeight)
+            ? "small"
+            : "large",
+        );
+      }
+    };
+    image.onerror = () => {
+      if (mounted) {
+        setSize("large");
+      }
+    };
+    image.src = src;
+
+    return () => {
+      mounted = false;
+    };
+  }, [src]);
+
+  return size;
+}
+
+type ImageContentProps = {
+  src: string;
+  alt: string;
+  onDownload: (event: React.MouseEvent) => void;
+};
+
+const ImageContent: React.FC<ImageContentProps> = ({ src, alt, onDownload }) => {
+  const size = useImageSize(src);
+
+  if (size === "pending") {
+    return null;
+  }
+
+  if (size === "small") {
+    return <img src={src} alt={alt} draggable={false} />;
+  }
+
+  return (
+    <>
+      <Button>
+        <DownloadIcon color="currentColor" onClick={onDownload} />
+      </Button>
+      <InlinePanZoomViewer
+        src={src}
+        alt={alt}
+        maxWidth={760}
+        maxHeight={460}
+        svgFallbackBackground
+      />
+    </>
+  );
+};
 
 /**
  * Matches following attributes in Markdown-typed image: [, alt, src, class]
@@ -285,18 +385,10 @@ export default class Image extends Node {
           className={isSelected ? "ProseMirror-selectednode" : ""}
           onClick={this.handleSelect(props)}
         >
-          <Button>
-            <DownloadIcon
-              color="currentColor"
-              onClick={this.handleDownload(props)}
-            />
-          </Button>
-          <InlinePanZoomViewer
+          <ImageContent
             src={src}
             alt={alt || ""}
-            maxWidth={760}
-            maxHeight={460}
-            svgFallbackBackground
+            onDownload={this.handleDownload(props)}
           />
         </ImageWrapper>
         <Caption
