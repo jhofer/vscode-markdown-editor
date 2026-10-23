@@ -58,6 +58,6 @@ The code is split into three layers:
 - `CopilotProvider` (`src/host/copilotProvider.ts`) — inline completions via VS Code's Language Model API, restricted to free-tier model families to avoid cost.
 - `PlantUmlRenderer` (`src/host/plantUmlRenderer.ts`) — shells out to a bundled `vendor/plantuml.jar` (requires a local Java install) to render PlantUML source to an SVG data URI.
 
-**Build**: esbuild bundles `src/extension.ts` → `out/extension.js` (CJS, node platform, external `vscode`) and the `src/client` webview entry → `out/client.js` separately. `vscode:prepublish` runs `prepare:plantuml-assets` (`scripts/preparePlantumlAssets.js`) before `build`.
+**Build**: esbuild bundles `src/extension.ts` → `out/extension.js` (CJS, node platform, external `vscode`) and the `src/client` webview entry → `out/client.js` separately. The client is built as ESM with code splitting (loaded as `<script type="module">`), so lazily `import()`ed libraries — Mermaid — land in `out/chunks/` and are only fetched when first used instead of being parsed on every webview start. `.vscodeignore` ships `out/chunks/*.js`; `esbuild-client` clears stale chunks first. `vscode:prepublish` runs `prepare:plantuml-assets` (`scripts/preparePlantumlAssets.js`) before `build`.
 
 **Tests**: Jest with `jsdom` environment, `@swc/jest` for `.ts`/`.tsx`. `.md` files are transformed to plain string exports by `jest-md-transformer.js` (see fixtures in `src/test/fixtures`). `.worktrees/` is excluded from test discovery.

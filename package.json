@@ -99,7 +99,7 @@
     "build": "npm run prepare:plantuml-assets && npm run esbuild-client --  --minify  && npm run esbuild-extension --  --minify ",
     "build-debug": "npm run prepare:plantuml-assets && npm run esbuild-client -- --sourcemap=inline --sources-content=true && npm run esbuild-extension",
     "esbuild-extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap --sources-content=true",
-    "esbuild-client": "esbuild ./src/client --bundle --outfile=out/client.js",
+    "esbuild-client": "node -e \"require('fs').rmSync('out/chunks',{recursive:true,force:true})\" && esbuild ./src/client --bundle --splitting --format=esm --outdir=out --entry-names=client --chunk-names=chunks/[name]-[hash]",
     "watch-client": "npm run esbuild-client -- --sourcemap=inline --sources-content=true --watch",
     "watch-extension": "npm run esbuild-extension -- --watch",
     "lint": "eslint .",

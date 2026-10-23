@@ -15,4 +15,5 @@
 !out/extension.js
 !out/client.js
 !out/client.css
+!out/chunks/*.js
 !vendor/plantuml.jar

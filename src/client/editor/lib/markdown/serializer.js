@@ -126,6 +126,11 @@ export class MarkdownSerializerState {
     this.nodes = nodes;
     this.marks = marks;
     this.delim = this.out = "";
+    // Whether `out` is empty or ends with a newline. Tracked as text is
+    // appended, since testing `out` itself (a regex, or even reading its last
+    // character) makes V8 flatten the whole string built so far on every
+    // write — quadratic in the document's length.
+    this.blank = true;
     this.closed = false;
     this.inTightList = false;
     // :: Object
@@ -141,14 +146,14 @@ export class MarkdownSerializerState {
 
   flushClose(size) {
     if (this.closed) {
-      if (!this.atBlank()) this.out += "\n";
+      if (!this.atBlank()) this.append("\n");
       if (size === null || size === undefined) size = 2;
       if (size > 1) {
         let delimMin = this.delim;
         const trim = /\s+$/.exec(delimMin);
         if (trim)
           delimMin = delimMin.slice(0, delimMin.length - trim[0].length);
-        for (let i = 1; i < size; i++) this.out += delimMin + "\n";
+        for (let i = 1; i < size; i++) this.append(delimMin + "\n");
       }
       this.closed = false;
     }
@@ -169,13 +174,20 @@ export class MarkdownSerializerState {
   }
 
   atBlank() {
-    return /(^|\n)$/.test(this.out);
+    return this.blank;
+  }
+
+  // Append raw text to the output.
+  append(text) {
+    if (!text) return;
+    this.out += text;
+    this.blank = text.charCodeAt(text.length - 1) === 10;
   }
 
   // :: ()
   // Ensure the current content ends with a newline.
   ensureNewLine() {
-    if (!this.atBlank()) this.out += "\n";
+    if (!this.atBlank()) this.append("\n");
   }
 
   // :: (?string)
@@ -184,8 +196,8 @@ export class MarkdownSerializerState {
   // (unescaped) to the output.
   write(content) {
     this.flushClose();
-    if (this.delim && this.atBlank()) this.out += this.delim;
-    if (content) this.out += content;
+    if (this.delim && this.atBlank()) this.append(this.delim);
+    if (content) this.append(content);
   }
 
   // :: (Node)
@@ -202,8 +214,8 @@ export class MarkdownSerializerState {
     for (let i = 0; i < lines.length; i++) {
       const startOfLine = this.atBlank() || this.closed;
       this.write();
-      this.out += escape !== false ? this.esc(lines[i], startOfLine) : lines[i];
-      if (i !== lines.length - 1) this.out += "\n";
+      this.append(escape !== false ? this.esc(lines[i], startOfLine) : lines[i]);
+      if (i !== lines.length - 1) this.append("\n");
     }
   }
 
@@ -403,16 +415,16 @@ export class MarkdownSerializerState {
 
       const count = i === 0 ? cells.length : writtenCellCount(row, cells);
       for (let j = 0; j < count; j++) {
-        if (j > 0) this.out += "|";
+        if (j > 0) this.append("|");
 
         const cell = cells[j];
         const openEdge = j === 0 && !leadingPipe;
         const closeEdge = j === count - 1 && !trailingPipe;
 
-        this.out += this.repeat(
+        this.append(this.repeat(
           " ",
           cellPad(cell.attrs.padLeft, padded && !openEdge)
-        );
+        ));
 
         let rendered = 0;
         cell.forEach(para => {
@@ -421,18 +433,18 @@ export class MarkdownSerializerState {
           if (para.textContent === "" && para.content.size === 0) return;
           // Markdown cells hold a single line, so a cell split into several
           // paragraphs (Enter in a cell, pasted HTML) is joined with `<br>`.
-          if (rendered++ > 0) this.out += "<br>";
+          if (rendered++ > 0) this.append("<br>");
           this.closed = false;
           this.render(para, row, j);
         });
 
-        this.out += this.repeat(
+        this.append(this.repeat(
           " ",
           cellPad(cell.attrs.padRight, padded && !closeEdge)
-        );
+        ));
       }
 
-      this.out += (trailingPipe ? "|" : "") + "\n";
+      this.append((trailingPipe ? "|" : "") + "\n");
 
       // The delimiter row follows the header, spelled the way the source
       // spelled it (its outer pipes may differ from the rows around it).
@@ -444,7 +456,7 @@ export class MarkdownSerializerState {
             cells.map(cell => delimiterSegment(cell.attrs)).join("|") +
             (hasTrailingPipe(delimiterPipes) ? "|" : "")
         );
-        this.out += "\n";
+        this.append("\n");
       }
     });
 

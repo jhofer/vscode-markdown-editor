@@ -281,7 +281,14 @@ export class RichMarkdownEditorProvider
       rawMarkdown || "",
       revision,
     );
-    logger.logDebug("updateWebview", message);
+    // Not the message itself: it holds the whole document (twice), which on
+    // every update would be serialized into the output channel.
+    logger.logDebug("updateWebview", {
+      length: markdown?.length ?? 0,
+      rawLength: rawMarkdown?.length ?? 0,
+      images: Object.keys(urlLookUp).length,
+      revision,
+    });
     ctx.messageBroker.sendMessage(message);
   }
 
@@ -1098,7 +1105,10 @@ export class RichMarkdownEditorProvider
           )};
           window.__RME_AZURE_DEVOPS__ = ${JSON.stringify(azureDevOpsEnabled)};
         </script>
-				<script nonce="${nonce}" src="${scriptUri}"></script>
+				<!-- A module, so that code only some documents need (Mermaid) is
+				split into chunks under out/chunks and loaded on first use. The
+				nonce carries over to the chunks it imports. -->
+				<script type="module" nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
   }

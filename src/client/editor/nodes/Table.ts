@@ -18,7 +18,8 @@ import {
   toggleHeaderRow,
 } from "prosemirror-tables";
 import { createTable, getCellsInColumn } from "../lib/tableUtils";
-import { Plugin, TextSelection } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 import tablesRule from "../rules/tables";
 
 export default class Table extends Node {
@@ -154,41 +155,89 @@ export default class Table extends Node {
   }
 
   get plugins() {
+    const shadowKey = new PluginKey<DecorationSet>("tableShadows");
+
+    // Which tables are wider than the editor, measured from the rendered DOM.
+    const shadowedTables = (view: EditorView): number[] => {
+      const positions: number[] = [];
+      const elements = view.dom.getElementsByClassName("rme-table");
+      let index = 0;
+      view.state.doc.descendants((node, pos) => {
+        // Tables don't nest, and no textblock holds one.
+        if (node.isTextblock) return false;
+        if (node.type.name !== this.name) return;
+
+        const element = elements[index++]?.parentElement;
+        if (element && element.scrollWidth > element.clientWidth) {
+          positions.push(pos);
+        }
+        return false;
+      });
+      return positions;
+    };
+
     return [
       tableEditing(),
       new Plugin({
+        key: shadowKey,
+        state: {
+          init: () => DecorationSet.empty,
+          apply: (tr, decorations) =>
+            tr.getMeta(shadowKey) ?? decorations.map(tr.mapping, tr.doc),
+        },
+        // Measuring a table forces a layout of the whole document, so it isn't
+        // done while working out each state update (each keystroke and cursor
+        // move) but once the DOM has been updated, and only after the document
+        // has stopped changing for a moment.
+        view: (view) => {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const measure = () => {
+            timer = undefined;
+            if (view.isDestroyed) return;
+            const positions = shadowedTables(view);
+            const current = shadowKey
+              .getState(view.state)
+              ?.find()
+              .map((decoration) => decoration.from - 1);
+            if (
+              current &&
+              current.length === positions.length &&
+              current.every((pos, i) => pos === positions[i])
+            ) {
+              return;
+            }
+            const { doc } = view.state;
+            const decorations = DecorationSet.create(
+              doc,
+              positions.map((pos) =>
+                Decoration.widget(pos + 1, () => {
+                  const shadow = document.createElement("div");
+                  shadow.className = "scrollable-shadow right";
+                  return shadow;
+                })
+              )
+            );
+            view.dispatch(view.state.tr.setMeta(shadowKey, decorations));
+          };
+          const schedule = () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(measure, 150);
+          };
+          schedule();
+          // A narrower window can make a table overflow, too.
+          window.addEventListener("resize", schedule);
+          return {
+            update: (view, prevState) => {
+              if (view.state.doc !== prevState.doc) schedule();
+            },
+            destroy: () => {
+              if (timer) clearTimeout(timer);
+              window.removeEventListener("resize", schedule);
+            },
+          };
+        },
         props: {
-          decorations: (state): any => {
-            const { doc } = state;
-            const decorations: Decoration[] = [];
-            let index = 0;
-
-            doc.descendants((node, pos) => {
-              if (node.type.name !== this.name) return;
-
-              const elements = document.getElementsByClassName("rme-table");
-              const table = elements[index];
-              if (!table) return;
-
-              const element = table.parentElement;
-              const shadowRight = !!(
-                element && element.scrollWidth > element.clientWidth
-              );
-
-              if (shadowRight) {
-                decorations.push(
-                  Decoration.widget(pos + 1, () => {
-                    const shadow = document.createElement("div");
-                    shadow.className = "scrollable-shadow right";
-                    return shadow;
-                  })
-                );
-              }
-              index++;
-            });
-
-            return DecorationSet.create(doc, decorations);
-          },
+          decorations: (state) => shadowKey.getState(state),
         },
       }),
     ];
