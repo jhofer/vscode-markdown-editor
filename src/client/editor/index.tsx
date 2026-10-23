@@ -99,6 +99,7 @@ import AzureDevOps from "./plugins/AzureDevOps";
 import { AzureDevOpsStore } from "./lib/azureDevOpsStore";
 import SmartText from "./plugins/SmartText";
 import TrailingNode from "./plugins/TrailingNode";
+import DeferredLayout from "./plugins/DeferredLayout";
 import PasteHandler from "./plugins/PasteHandler";
 import FileDrop from "./plugins/FileDrop";
 import { DroppedResource } from "../../common/droppedResources";
@@ -652,6 +653,7 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
           new Folding(),
           new SmartText(),
           new TrailingNode(),
+          new DeferredLayout(),
           new PasteHandler(),
           new Keys({
             onBlur: this.handleEditorBlur,

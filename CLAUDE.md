@@ -60,4 +60,6 @@ The code is split into three layers:
 
 **Build**: esbuild bundles `src/extension.ts` → `out/extension.js` (CJS, node platform, external `vscode`) and the `src/client` webview entry → `out/client.js` separately. The client is built as ESM with code splitting (loaded as `<script type="module">`), so lazily `import()`ed libraries — Mermaid — land in `out/chunks/` and are only fetched when first used instead of being parsed on every webview start. `.vscodeignore` ships `out/chunks/*.js`; `esbuild-client` clears stale chunks first. `vscode:prepublish` runs `prepare:plantuml-assets` (`scripts/preparePlantumlAssets.js`) before `build`.
 
+**Loading performance**: the custom editor is registered with `retainContextWhenHidden`, so a background tab keeps its webview. `plugins/DeferredLayout.ts` puts `content-visibility: auto` on the editor's top-level blocks (via its own `<style>`, by `:nth-child` index, never touching ProseMirror's DOM) while a document loads, then hands the blocks back to normal layout in adaptive idle-time batches and removes the rule, so the final layout is unchanged and the scrollbar doesn't keep jumping.
+
 **Tests**: Jest with `jsdom` environment, `@swc/jest` for `.ts`/`.tsx`. `.md` files are transformed to plain string exports by `jest-md-transformer.js` (see fixtures in `src/test/fixtures`). `.worktrees/` is excluded from test discovery.
