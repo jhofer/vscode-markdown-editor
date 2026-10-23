@@ -353,12 +353,12 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
     let hasAI = false;
 
     doc.descendants((node) => {
-      if (node.marks) {
-        const aiMark = node.marks.find(m => m.type.name === "ai_completion");
-        if (aiMark) {
-          hasAI = true;
-          return false; // Stop iteration
-        }
+      // Returning false only skips a node's children, so once a mark is found
+      // don't descend any further either.
+      if (hasAI) return false;
+      if (node.marks.some(m => m.type.name === "ai_completion")) {
+        hasAI = true;
+        return false;
       }
       return true;
     });
@@ -926,7 +926,13 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
           self.handleChange();
         }
 
-        self.calculateDir();
+        // The direction can only change along with the text (dir="auto"), and
+        // reading the computed style forces a style recalculation of the
+        // whole document, so it's checked once typing pauses, not on every
+        // keystroke or cursor move.
+        if (transactions.some((tr) => tr.docChanged)) {
+          self.calculateDirSoon();
+        }
 
         // Because Prosemirror and React are not linked we must tell React that
         // a render is needed whenever the Prosemirror state changes.
@@ -965,6 +971,8 @@ class RichMarkdownEditor extends React.PureComponent<Props, State> {
       this.setState({ isRTL });
     }
   };
+
+  calculateDirSoon = debounce(() => this.calculateDir(), 250);
 
   value = (): string => {
     return this.serializer.serialize(this.view.state.doc);

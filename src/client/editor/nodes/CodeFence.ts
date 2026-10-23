@@ -59,6 +59,22 @@ export default class CodeFence extends Node {
     return Object.entries(LANGUAGES);
   }
 
+  languageSelectTemplate?: HTMLSelectElement;
+
+  languageSelect() {
+    if (!this.languageSelectTemplate) {
+      const select = document.createElement("select");
+      this.languageOptions.forEach(([key, label]) => {
+        const option = document.createElement("option");
+        option.value = key === "none" ? "" : key;
+        option.textContent = label;
+        select.appendChild(option);
+      });
+      this.languageSelectTemplate = select;
+    }
+    return this.languageSelectTemplate;
+  }
+
   get name() {
     return "code_fence";
   }
@@ -106,21 +122,16 @@ export default class CodeFence extends Node {
       ],
       toDOM: node => {
         const button = document.createElement("button");
-        button.innerText = "Copy";
+        button.textContent = "Copy";
         button.type = "button";
         button.addEventListener("click", this.handleCopyToClipboard);
 
-        const select = document.createElement("select");
+        // Cloned rather than built option by option for every code block.
+        const select = this.languageSelect().cloneNode(true) as HTMLSelectElement;
         select.addEventListener("change", this.handleLanguageChange);
-
-        this.languageOptions.forEach(([key, label]) => {
-          const option = document.createElement("option");
-          const value = key === "none" ? "" : key;
-          option.value = value;
-          option.innerText = label;
-          option.selected = node.attrs.language === value;
-          select.appendChild(option);
-        });
+        for (const option of Array.from(select.options)) {
+          option.selected = node.attrs.language === option.value;
+        }
 
         return [
           "div",

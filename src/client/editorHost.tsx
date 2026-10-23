@@ -92,10 +92,8 @@ export function EditorHost(props: IEditorHostProps) {
     //add message handlers
     broker.registerHandler(updateMarkdownMessage, ({ markdownText: incomingMarkdown, urlLookup, rawMarkdownText: incomingRawMarkdown, revision }) => {
       console.log("Received updateMarkdown message:", {
-        markdownText: incomingMarkdown?.substring(0, 100),
-        urlLookup,
+        length: incomingMarkdown?.length,
         revision,
-        isEcho: pendingUpdateRef.current && isBasicallySame(incomingMarkdown, lastSentMarkdownRef.current)
       });
 
       // This response belongs to an edit we've already sent a newer one on

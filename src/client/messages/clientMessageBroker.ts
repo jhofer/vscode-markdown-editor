@@ -77,7 +77,9 @@ export class ClientMessageBroker {
       console.log("Ignoring message - document URI mismatch");
       return;
     }
-    console.log("HostMessageBroker.handleMessage", request);
+    // Only the type: the payload can hold the whole document, which the
+    // console would keep a copy of for every message.
+    console.log("HostMessageBroker.handleMessage", request.message.type);
     const { type } = request.message;
     const registeredHandler = this.messageHandlers.filter(
       (h) => h.type == type
@@ -98,7 +100,7 @@ export class ClientMessageBroker {
       documentUri: this.documentUri,
       message,
     };
-    console.log("vscode.postMessage", request);
+    console.log("vscode.postMessage", message.type);
     vscode.postMessage(request);
   }
 }
