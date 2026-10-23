@@ -123,7 +123,8 @@ usual and are reflected in the open editor.
   `![name](./relative/path.png)`, anything else a plain link. The path is always
   relative to the markdown file being edited.
 * **Images** can be zoomed, panned and opened fullscreen, and have an editable
-  caption (the alt text). The image toolbar aligns, downloads, replaces or
+  caption (the alt text). Small images of at most 200×200 px, such as icons,
+  are shown directly at their own size, without the zoom viewer. The image toolbar aligns, downloads, replaces or
   deletes an image.
 * **SVG files render inline**, so diagrams exported by tools like
   [Draw.io Integration](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio)
