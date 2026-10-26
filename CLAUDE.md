@@ -51,6 +51,8 @@ The code is split into three layers:
 
 **Raw/source mode**: a CodeMirror editor (`src/client/rawEditor`). `EditorHost` (`src/client/editorHost.tsx`) owns which mode is active, debounces rich-editor → markdown updates before sending them to the host, and guards against "echo" updates (content the client itself just sent coming back from the host).
 
+**Keeping the caret while syncing**: every `updateMarkdown` request carries a client-side `revision`; the host hands it back on the response caused by that edit (`pendingRevisions` in `richMarkdownEditorProvider.ts`) and answers every revision exactly once. The client drops responses to superseded revisions, skips updates while it still has unsent (debounced) edits, and drops revision-less updates (external changes such as auto-save trimming whitespace) that arrive while its latest edit is still in flight — the host applied them before that edit, which replaced the whole document anyway. Updates that do get loaded go through `lib/replaceDocument.ts`, which diffs the top-level blocks (patience diff) and replaces only the changed ranges, keeping a caret inside one at its offset instead of pushing it to the range's end. `src/test/typingRoundTrip.test.tsx` types into the real `EditorHost` against a fake, slow host and checks the caret after every keystroke; add a scenario there for any new sync race.
+
 **Path resolution**: `/`-prefixed image and link paths are resolved against the containing **git repository root** (found by walking up from the document looking for a `.git` entry), not the VS Code workspace root — the opened workspace folder may be a parent of the actual repo (see `findGitRepositoryRoot`/`getPathRootFolder` in `richMarkdownEditorProvider.ts`).
 
 **Host-side integrations**:

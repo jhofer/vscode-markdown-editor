@@ -1141,7 +1141,9 @@ export class RichMarkdownEditorProvider
    * onDidChangeTextDocument handler can hand it back to the client once this
    * edit's change event fires - or, if the text turns out to already match
    * (no edit will actually be applied, so no change event will fire either),
-   * acknowledged immediately here instead.
+   * acknowledged immediately here instead. Every revision is answered, one
+   * way or another: the client holds back other updates until the answer to
+   * its latest edit arrives (see EditorHost's awaitingResponseRef).
    */
   private updateTextDocument(
     ctx: EditorContext,
@@ -1190,17 +1192,24 @@ export class RichMarkdownEditorProvider
       sanitized,
     );
 
-    const applied = await vscode.workspace.applyEdit(edit);
-    if (revision !== undefined) {
-      // Its change event has fired by now, if it was going to. Still queued
-      // means it never came (the edit failed) or didn't match (another change
-      // was folded into it); drop it so it can't hold up later edits.
-      const index = ctx.pendingRevisions.findIndex(
-        (pending) => pending.revision === revision,
-      );
-      if (index !== -1) ctx.pendingRevisions.splice(index, 1);
+    try {
+      return await vscode.workspace.applyEdit(edit);
+    } finally {
+      if (revision !== undefined) {
+        // Its change event has fired by now, if it was going to. Still
+        // queued means it never came (the edit failed) or didn't match
+        // (another change was folded into it); drop it so it can't hold up
+        // later edits, and answer the request with whatever the document
+        // holds now so the client isn't left waiting for it.
+        const index = ctx.pendingRevisions.findIndex(
+          (pending) => pending.revision === revision,
+        );
+        if (index !== -1) {
+          ctx.pendingRevisions.splice(index, 1);
+          this.updateWebview(ctx, revision);
+        }
+      }
     }
-    return applied;
   }
 
 }

@@ -81,3 +81,54 @@ test("is left out of the undo history", () => {
   const tr = replaceDocument(state, parser.parse("b\n"))!;
   expect(tr.getMeta("addToHistory")).toBe(false);
 });
+
+test("keeps the caret in place when content above and below it changes", () => {
+  const state = stateWithCaret("intro\n\nmiddle line\n\noutro\n", "line");
+  const next = state.apply(
+    replaceDocument(
+      state,
+      parser.parse("a much longer intro\n\nmiddle line\n\na much longer outro\n")
+    )!
+  );
+  expect(next.selection.head).toBe(posOfText(next, "line"));
+  expect(next.doc.child(1)).toBe(state.doc.child(1));
+});
+
+test("keeps the caret's offset when text on both sides of it changes", () => {
+  const state = stateWithCaret("aaa bbb ccc\n", " ccc");
+  const next = state.apply(
+    replaceDocument(state, parser.parse("xxx bbb yyy\n"))!
+  );
+  expect(next.selection.head).toBe(posOfText(next, " yyy"));
+});
+
+test("clamps the caret to the new content when its paragraph shrinks", () => {
+  const state = stateWithCaret("some long text here\n\nnext\n", "here");
+  const next = state.apply(replaceDocument(state, parser.parse("so\n\nnext\n"))!);
+  expect(next.selection.head).toBe(posOfText(next, "so") + 2);
+});
+
+test("results in the new document when blocks that repeat are kept", () => {
+  const md = (a: string, c: string) =>
+    `${a}\n\n---\n\n- one\n- two\n\n---\n\n${c}\n`;
+  const state = EditorState.create({ doc: parser.parse(md("a", "c")) });
+  const changed = parser.parse(md("a changed", "c changed"));
+  const next = state.apply(replaceDocument(state, changed)!);
+  expect(next.doc.eq(changed)).toBe(true);
+  for (let i = 1; i < 4; i++) {
+    expect(next.doc.child(i)).toBe(state.doc.child(i));
+  }
+});
+
+test("results in the new document when several list items change", () => {
+  const state = stateWithCaret(
+    "# Title\n\n- one\n- two\n- three\n\n> quote\n\nend\n",
+    "two"
+  );
+  const changed = parser.parse(
+    "# New title\n\n- one\n- two\n- three, changed\n\n> quote, changed\n\nend\n"
+  );
+  const next = state.apply(replaceDocument(state, changed)!);
+  expect(next.doc.eq(changed)).toBe(true);
+  expect(next.selection.head).toBe(posOfText(next, "two"));
+});

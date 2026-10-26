@@ -123,6 +123,17 @@ const scenarios: Record<string, Scenario> = {
     externalEditAt: 700,
     rhythm: [30, 600, 150, 150, 150, 150],
   },
+  // The edit lands on the host after the webview has sent its latest text
+  // but before the host has applied it: the host then reports the document
+  // as it was before that text (plus the edit), which the webview's edit is
+  // about to overwrite anyway.
+  "another edit lands while an edit is in flight": {
+    initial: "first line\n\nsecond line\n",
+    after: "first line",
+    typed: " hello world this is typing",
+    externalEditAt: 2900,
+    rhythm: [30, 2500, 60, 700, 90],
+  },
 };
 
 describe("typing while the host round trip is slow", () => {
