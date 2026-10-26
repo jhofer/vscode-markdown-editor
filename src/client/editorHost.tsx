@@ -83,6 +83,12 @@ export function EditorHost(props: IEditorHostProps) {
   // to apply).
   const nextRevisionRef = useRef<number>(0);
   const lastSentRevisionRef = useRef<number>(0);
+  // Whether the response to our latest edit is still on its way. The host
+  // applies edits in the order they were sent and reports every change in
+  // the order it was made, so a change without a revision that arrives
+  // before that response was made before our edit landed - and our edit,
+  // which replaces the whole document, has overwritten it since.
+  const awaitingResponseRef = useRef<boolean>(false);
 
   // Whether the rich-text editor holds edits that haven't been sent yet (still
   // waiting out the debounce). Assigned once handleOutlineChange exists below.
@@ -106,6 +112,23 @@ export function EditorHost(props: IEditorHostProps) {
       if (revision !== undefined && revision < lastSentRevisionRef.current) {
         console.log("Dropping stale updateMarkdown response", { revision, lastSent: lastSentRevisionRef.current });
         return;
+      }
+
+      // A change made by someone else (VS Code trimming whitespace as it
+      // auto-saves, say) while our latest edit was still on its way to the
+      // host: the document it describes is older than what the editor
+      // holds, and our edit has already replaced it on the host. Loading it
+      // would roll the typed text back for a moment - and since the two
+      // versions differ wherever that save trimmed a line, the caret
+      // would be carried to the far end of the changed range, then the
+      // response to our edit would put the text back without bringing the
+      // caret along. Our edit's own response follows right behind this one.
+      if (revision === undefined && awaitingResponseRef.current) {
+        console.log("Dropping update made before our in-flight edit landed");
+        return;
+      }
+      if (revision === lastSentRevisionRef.current) {
+        awaitingResponseRef.current = false;
       }
 
       // Update URL lookup map - check if URLs actually changed
@@ -229,6 +252,7 @@ export function EditorHost(props: IEditorHostProps) {
         // earlier, since-superseded edit can be told apart from this one.
         const revision = ++nextRevisionRef.current;
         lastSentRevisionRef.current = revision;
+        awaitingResponseRef.current = true;
         // Send to backend but DON'T update React state
         // The editor already has this content - updating state would cause re-render and cursor loss
         messageBroker.sendMessage(updateMarkdownMessage.request(fullText, revision));
@@ -245,6 +269,7 @@ export function EditorHost(props: IEditorHostProps) {
       currentRawMarkdownRef.current = value;
       const revision = ++nextRevisionRef.current;
       lastSentRevisionRef.current = revision;
+      awaitingResponseRef.current = true;
       messageBroker.sendMessage(updateMarkdownMessage.request(value, revision));
       setRawMarkdownText(value);
     },
